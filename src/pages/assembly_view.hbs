@@ -4,64 +4,197 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{title}}</title>
+    
     <link rel="stylesheet" href="/public/style.css">
+
     <style>
-        body { font-family: sans-serif; margin: 20px; background-color: #f8f8f8; color: #333; }
-        h1 { color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
-        .context-info { background-color: #e6f7ff; border: 1px solid #b3e0ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        .context-info p { margin: 5px 0; font-size: 0.9em; }
-        .context-info code { background-color: #cceeff; padding: 2px 5px; border-radius: 4px; font-family: monospace; }
-        h2 { color: #555; margin-top: 30px; margin-bottom: 15px; }
-        pre { background-color: #282c34; color: #abb2bf; padding: 20px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', Courier, monospace; font-size: 0.85em; }
-        p.no-data { color: #c0392b; font-weight: bold; }
-        hr { border: 0; border-top: 1px solid #eee; margin: 40px 0; }
-        .back-link { display: inline-block; margin-top: 20px; color: #007bff; text-decoration: none; padding: 8px 15px; border: 1px solid #007bff; border-radius: 5px; }
-        .back-link:hover { background-color: #007bff; color: white; }
+        body {
+            margin: 0;
+            overflow: hidden; /* Hide scrollbars as canvas will fill the view */
+            font-family: sans-serif;
+            background-color: #f0f0f0; /* Light background */
+            color: #333;
+            display: flex;
+            flex-direction: column; /* Arrange content vertically */
+            height: 100vh; /* Full viewport height */
+        }
+        #viewer-container {
+            flex-grow: 1; /* Allow the viewer to take up available space */
+            position: relative;
+            background-color: #fff; /* White background for 3D area */
+        }
+        #viewer-container canvas {
+            display: block; /* Remove extra space below canvas */
+        }
+        #ui-panel {
+            padding: 10px;
+            background-color: #eee;
+            border-top: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #explosion-slider {
+            width: 80%;
+            margin: 0 10px;
+        }
+        .context-info {
+            background-color: #e6f7ff;
+            border: 1px solid #b3e0ff;
+            padding: 5px 15px; /* Reduced padding */
+            border-radius: 4px; /* Reduced border-radius */
+            margin-bottom: 5px; /* Reduced margin */
+            font-size: 0.8em; /* Smaller font */
+        }
+        .context-info p {
+            margin: 2px 0;
+        }
+        .context-info code {
+            background-color: #cceeff;
+            padding: 1px 3px;
+            border-radius: 2px;
+            font-family: monospace;
+        }
     </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
 </head>
 <body>
-    <h1>{{title}}</h1>
     <div class="context-info">
-        <p>App loaded from Onshape context:</p>
-        <p>Document ID: <code>{{documentId}}</code></p>
-        <p>Workspace ID: <code>{{workspaceId}}</code></p>
-        <p>Element ID (Assembly): <code>{{elementId}}</code></p>
+        <p>Doc: <code>{{documentId}}</code> | Workspace: <code>{{workspaceId}}</code> | Element: <code>{{elementId}}</code></p>
     </div>
 
-    <h2>Assembly Definition (Raw Data for Debugging)</h2>
-    {{#if assemblyData}}
-        <pre>{{json assemblyData}}</pre> {{!-- This uses the 'json' Handlebars helper you registered --}}
-    {{else}}
-        <p class="no-data">No assembly data loaded. This could mean:</p>
-        <ul>
-            <li>The Onshape API call failed (check Glitch logs).</li>
-            <li>The element opened in Onshape is not an assembly.</li>
-            <li>There's no content in the assembly.</li>
-        </ul>
-    {{/if}}
+    <div id="viewer-container">
+        </div>
 
-    {{!-- This is where you'll add your client-side JavaScript for dynamic explosion --}}
+    <div id="ui-panel">
+        <label for="explosion-slider">Explode:</label>
+        <input type="range" id="explosion-slider" min="0" max="100" value="0">
+    </div>
+
     <script>
-        // Log the raw assembly data to the browser console for inspection
-        // The 'json' helper ensures this is valid JavaScript object literal.
-        const assemblyData = {{json assemblyData}};
-        console.log("Assembly Data:", assemblyData);
+        // --- 1. Get Onshape Context from Server-Side Render ---
+        const documentId = "{{documentId}}";
+        const workspaceId = "{{workspaceId}}";
+        const elementId = "{{elementId}}";
+        const accessToken = "{{accessToken}}"; // This short-lived token is passed directly
 
-        // --- Your Exploded View Logic Will Go Here ---
-        // You will parse 'assemblyData' to:
-        // 1. Identify part instances (look at `rootAssembly.instances` and `rootAssembly.occurrences`).
-        // 2. Understand assembly structure (how instances are nested).
-        // 3. Find mate connectors and mate features if you're basing explode on those.
-        // 4. Implement 3D rendering (e.g., using a WebGL library like Three.js, Babylon.js, or your own logic).
-        // 5. Apply transformations (translations) to parts to create the "exploded" effect.
+        let assemblyData = null; // To store assembly structure
+        let gltfScene = null;    // To store the loaded GLTF scene (a Three.js Group)
 
-        // Example: How to get a list of top-level instances
-        if (assemblyData && assemblyData.rootAssembly && assemblyData.rootAssembly.instances) {
-            console.log("Top-level Assembly Instances:", assemblyData.rootAssembly.instances);
+        // --- 2. Three.js Setup ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const viewerContainer = document.getElementById('viewer-container');
+
+        renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+        viewerContainer.appendChild(renderer.domElement);
+
+        // Add some basic lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 2); // soft white light
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(1, 1, 1).normalize();
+        scene.add(directionalLight);
+
+        // OrbitControls for interaction
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; // Animate smooth damping
+        controls.dampingFactor = 0.05;
+        controls.screenSpacePanning = false;
+        controls.minDistance = 1;
+        controls.maxDistance = 500; // Adjust as needed
+        controls.target.set(0,0,0); // Look at origin initially
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); // only required if controls.enableDamping or controls.autoRotate are set to true
+            renderer.render(scene, camera);
         }
-    </script>
+        animate();
 
-    <hr>
-    <p><a href="/" class="back-link">Back to Home</a></p>
+        // Handle window resizing
+        window.addEventListener('resize', () => {
+            camera.aspect = viewerContainer.clientWidth / viewerContainer.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+        });
+
+        // --- 3. Fetch Data from Proxy Endpoints ---
+        async function fetchAssemblyDataAndModel() {
+            if (!documentId || !workspaceId || !elementId || !accessToken) {
+                console.error("Missing Onshape context. Cannot fetch data.");
+                alert("App not loaded with full Onshape context. Please open from an Onshape assembly tab.");
+                return;
+            }
+
+            try {
+                // Fetch Assembly Definition
+                const assemblyDataResponse = await fetch(`/api/assemblydata?d=${documentId}&w=${workspaceId}&e=${elementId}&accessToken=${accessToken}`);
+                if (!assemblyDataResponse.ok) {
+                    throw new Error(`Failed to fetch assembly data: ${assemblyDataResponse.statusText}`);
+                }
+                assemblyData = await assemblyDataResponse.json();
+                console.log('Fetched Assembly Definition:', assemblyData);
+
+                // Fetch GLTF Model
+                const gltfModelResponse = await fetch(`/api/gltf-model?d=${documentId}&w=${workspaceId}&e=${elementId}&accessToken=${accessToken}`);
+                if (!gltfModelResponse.ok) {
+                    throw new Error(`Failed to fetch GLTF model: ${gltfModelResponse.statusText}`);
+                }
+                // GLTF loader expects a URL or a Blob/File, not directly a stream from fetch
+                // The proxy endpoint streams it correctly, so we'll pass the URL
+                const gltfBlob = await gltfModelResponse.blob(); // Get as Blob
+                const gltfBlobUrl = URL.createObjectURL(gltfBlob); // Create object URL
+
+                const loader = new THREE.GLTFLoader();
+                loader.load(gltfBlobUrl, (gltf) => {
+                    gltfScene = gltf.scene; // Store the loaded scene
+                    scene.add(gltfScene); // Add the GLTF model to the Three.js scene
+
+                    // Optional: Fit camera to bounding box of the loaded model
+                    const box = new THREE.Box3().setFromObject(gltfScene);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const fov = camera.fov * (Math.PI / 180);
+                    let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+                    cameraZ = Math.max(cameraZ, size.y * 1.5); // Ensure enough distance
+                    camera.position.set(center.x, center.y, center.z + cameraZ);
+                    controls.target.copy(center);
+                    controls.update();
+
+                    console.log('GLTF Model Loaded:', gltf);
+                    URL.revokeObjectURL(gltfBlobUrl); // Clean up the object URL
+                }, undefined, (error) => {
+                    console.error('Error loading GLTF:', error);
+                    alert("Error loading 3D model.");
+                });
+
+            } catch (error) {
+                console.error('Error in fetching Onshape data:', error);
+                alert(`Failed to load Onshape model data: ${error.message}`);
+            }
+        }
+
+        // --- 4. Initialize Data Fetching ---
+        fetchAssemblyDataAndModel();
+
+        // --- 5. Slider Event Listener (for future explosion logic) ---
+        const slider = document.getElementById('explosion-slider');
+        slider.addEventListener('input', (event) => {
+            const sliderValue = event.target.value;
+            console.log('Slider value:', sliderValue);
+            // Here you will implement your explosion logic:
+            // 1. Calculate new positions for parts based on `sliderValue` and `assemblyData`.
+            // 2. Apply these new positions to the corresponding `THREE.Object3D`s within `gltfScene`.
+            //    You'll need to map GLTF nodes to Onshape instances.
+        });
+    </script>
 </body>
 </html>
