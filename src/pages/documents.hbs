@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Onshape Documents</title>
+    <link rel="stylesheet" href="/public/style.css"> {{!-- Assuming you have a public/style.css --}}
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        ul { list-style: none; padding: 0; }
+        li { background-color: #f0f0f0; margin-bottom: 10px; padding: 10px; border-radius: 5px; }
+        li strong { color: #007bff; }
+        .document-link { text-decoration: none; color: #0056b3; font-weight: bold; }
+        .document-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Your Onshape Documents</h1>
+
+    {{#if documents}}
+        <ul>
+            {{#each documents}}
+                <li>
+                    <strong>Name:</strong> {{name}}<br>
+                    <strong>ID:</strong> {{id}}<br>
+                    <strong>Owner:</strong> {{owner.name}}<br>
+                    <strong>Created:</strong> {{createdAt}}<br>
+                    {{#if defaultWorkspace}}
+                        <a href="/assemblySelector?documentId={{id}}&workspaceId={{defaultWorkspace.id}}" class="document-link">Select this Document for Exploded View</a>
+                    {{else}}
+                        <em>No default workspace found. Cannot select.</em>
+                    {{/if}}
+                </li>
+            {{/each}}
+        </ul>
+    {{else}}
+        <p>No documents found or you haven't authorized access to your documents.</p>
+        <p><a href="/oauthStart">Click here to re-authorize</a> if you expect to see documents.</p>
+    {{/if}}
+
+    <hr>
+    <p><a href="/">Back to Home</a></p>
+</body>
+</html>

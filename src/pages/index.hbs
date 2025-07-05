@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{title}}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+    label, input, button {
+      font-size: 1.2em;
+      margin: 8px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>{{title}}</h1>
+
+  <form id="explodeForm">
+    <label for="explodeLevel">Explode Level (0-100):</label>
+    <input type="range" id="explodeLevel" name="explodeLevel" min="0" max="100" value="0" />
+    <span id="explodeValue">0</span>
+    <br />
+    <button type="submit">Explode Assembly</button>
+  </form>
+
+  <script>
+    const explodeSlider = document.getElementById('explodeLevel');
+    const explodeValue = document.getElementById('explodeValue');
+    explodeSlider.addEventListener('input', () => {
+      explodeValue.textContent = explodeSlider.value;
+    });
+
+    const form = document.getElementById('explodeForm');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const level = explodeSlider.value;
+      alert(`You would send explode command with level: ${level} here.`);
+      // Here you will eventually add code to call your backend or Onshape API.
+    });
+  </script>
+</body>
+</html>

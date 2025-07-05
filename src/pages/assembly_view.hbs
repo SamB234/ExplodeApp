@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="/public/style.css">
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f8f8f8; color: #333; }
+        h1 { color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+        .context-info { background-color: #e6f7ff; border: 1px solid #b3e0ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .context-info p { margin: 5px 0; font-size: 0.9em; }
+        .context-info code { background-color: #cceeff; padding: 2px 5px; border-radius: 4px; font-family: monospace; }
+        h2 { color: #555; margin-top: 30px; margin-bottom: 15px; }
+        pre { background-color: #282c34; color: #abb2bf; padding: 20px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', Courier, monospace; font-size: 0.85em; }
+        p.no-data { color: #c0392b; font-weight: bold; }
+        hr { border: 0; border-top: 1px solid #eee; margin: 40px 0; }
+        .back-link { display: inline-block; margin-top: 20px; color: #007bff; text-decoration: none; padding: 8px 15px; border: 1px solid #007bff; border-radius: 5px; }
+        .back-link:hover { background-color: #007bff; color: white; }
+    </style>
+</head>
+<body>
+    <h1>{{title}}</h1>
+    <div class="context-info">
+        <p>App loaded from Onshape context:</p>
+        <p>Document ID: <code>{{documentId}}</code></p>
+        <p>Workspace ID: <code>{{workspaceId}}</code></p>
+        <p>Element ID (Assembly): <code>{{elementId}}</code></p>
+    </div>
+
+    <h2>Assembly Definition (Raw Data for Debugging)</h2>
+    {{#if assemblyData}}
+        <pre>{{json assemblyData}}</pre> {{!-- This uses the 'json' Handlebars helper you registered --}}
+    {{else}}
+        <p class="no-data">No assembly data loaded. This could mean:</p>
+        <ul>
+            <li>The Onshape API call failed (check Glitch logs).</li>
+            <li>The element opened in Onshape is not an assembly.</li>
+            <li>There's no content in the assembly.</li>
+        </ul>
+    {{/if}}
+
+    {{!-- This is where you'll add your client-side JavaScript for dynamic explosion --}}
+    <script>
+        // Log the raw assembly data to the browser console for inspection
+        // The 'json' helper ensures this is valid JavaScript object literal.
+        const assemblyData = {{json assemblyData}};
+        console.log("Assembly Data:", assemblyData);
+
+        // --- Your Exploded View Logic Will Go Here ---
+        // You will parse 'assemblyData' to:
+        // 1. Identify part instances (look at `rootAssembly.instances` and `rootAssembly.occurrences`).
+        // 2. Understand assembly structure (how instances are nested).
+        // 3. Find mate connectors and mate features if you're basing explode on those.
+        // 4. Implement 3D rendering (e.g., using a WebGL library like Three.js, Babylon.js, or your own logic).
+        // 5. Apply transformations (translations) to parts to create the "exploded" effect.
+
+        // Example: How to get a list of top-level instances
+        if (assemblyData && assemblyData.rootAssembly && assemblyData.rootAssembly.instances) {
+            console.log("Top-level Assembly Instances:", assemblyData.rootAssembly.instances);
+        }
+    </script>
+
+    <hr>
+    <p><a href="/" class="back-link">Back to Home</a></p>
+</body>
+</html>
