@@ -12,13 +12,13 @@ const fastifyStatic = require('@fastify/static');
 // Load environment variables from .env
 dotenv.config();
 
-// Register view engine
+// Register view engine — no layout.hbs (was causing issues)
 fastify.register(pointOfView, {
   engine: {
     handlebars: handlebars,
   },
-  root: path.join(__dirname, 'views'),
-  layout: 'layout.hbs',
+  root: path.join(__dirname, 'src/pages'),
+  viewExt: 'hbs',
 });
 
 // Serve static files (CSS, client-side JS, etc.)
@@ -78,13 +78,13 @@ fastify.get('/oauthCallback', async (request, reply) => {
 
 // Home route: expects query params from Onshape launch
 fastify.get('/', async (request, reply) => {
-  fastify.log.info('Query parameters received:', request.query); // Logs d, w, e, accessToken
+  fastify.log.info('Query parameters received:', request.query);
 
   const { d, w, e } = request.query;
 
   // If no token in session, prompt OAuth start
   if (!request.session.access_token) {
-    return reply.view('index.hbs', {
+    return reply.view('index', {
       title: 'Onshape Exploded View App',
       message: 'Please authorize the app first.',
       oauthUrl: '/oauthStart',
@@ -92,12 +92,26 @@ fastify.get('/', async (request, reply) => {
   }
 
   // Render assembly view with doc/workspace/element and token from session
-  return reply.view('assembly_view.hbs', {
+  return reply.view('assembly_view', {
     title: 'Exploded View',
     documentId: d || '',
     workspaceId: w || '',
     elementId: e || '',
     accessToken: request.session.access_token,
+  });
+});
+
+// Optional route for documents page
+fastify.get('/documents', async (request, reply) => {
+  return reply.view('documents', {
+    title: 'Your Documents',
+  });
+});
+
+// Fallback 404 route
+fastify.setNotFoundHandler((request, reply) => {
+  reply.status(404).view('error', {
+    message: 'Page not found',
   });
 });
 
