@@ -69,8 +69,6 @@ async function ensureValidToken(request, reply, done) {
   if (!session || !session.access_token || !session.expires_at) {
     return reply.redirect('/oauthStart');
   }
-}
-
 
   const now = Date.now();
   if (now > session.expires_at - 60000) {
@@ -90,9 +88,25 @@ async function ensureValidToken(request, reply, done) {
       });
 
       if (!res.ok) {
-        fastify.log.error('Failed to refresh token', await res.text());
-        return reply.redirect('/oauthStart');
+        throw new Error(`Failed to refresh token: ${res.statusText}`);
       }
+      const data = await res.json();
+
+      session.access_token = data.access_token;
+      session.refresh_token = data.refresh_token;
+      session.expires_at = Date.now() + data.expires_in * 1000;
+
+      await session.save();
+      done();
+    } catch (err) {
+      console.error('Error refreshing token:', err);
+      return reply.redirect('/oauthStart');
+    }
+  } else {
+    done();
+  }
+}
+
 
       const data = await res.json();
       session.access_token = data.access_token;
