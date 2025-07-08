@@ -22,9 +22,9 @@ handlebars.registerHelper('json', function (context) {
 fastify.register(fastifyHelmet, {
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'none'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'"],
+    defaultSrc: ["'none'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
       fontSrc: ["'self'", "data:"],
       connectSrc: ["'self'"],
