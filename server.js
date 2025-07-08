@@ -29,12 +29,19 @@ fastify.register(fastifyHelmet, {
       fontSrc: ["'self'", "data:"],
       connectSrc: ["'self'"],
       frameAncestors: [
-        "'self'",
-        "*.onshape.com",
-        "*.dev.onshape.com",
-        "*.creo.ptc.com",
-        "https://onshapesandbox4.thoughtindustries.com",
-        "https://localhost.dev.onshape.com:8000"
+  "https://*.dev.graebert.com",
+  "https://*.onshape.io",
+  "https://td.doubleclick.net",
+  "https://js.stripe.com",
+  "https://www.recaptcha.net",
+  "https://*.onshape.com",
+  "https://fast.wistia.net",
+  "https://fast.wistia.com",
+  "https://www.youtube.com",
+  "https://js.driftt.com",
+  "https://www.googletagmanager.com",
+  "https://explodeapp.onrender.com",
+  "https://explodeapp.onrender.com/oauthStart"      
       ],
       objectSrc: ["'none'"], // ✅ Hardened
       baseUri: ["'self'"],
