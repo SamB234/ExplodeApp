@@ -12,7 +12,7 @@
     "@fastify/view": "^7.4.1",
     "@fastify/cookie": "^7.0.0", 
     "@fastify/session": "^9.0.0",
-    "@fastify/helmet": "^11.0.0"
+    "@fastify/helmet": "^11.0.0",
     "dotenv": "^16.0.3",
     "fastify": "^4.29.1",
     "handlebars": "^4.7.8",
