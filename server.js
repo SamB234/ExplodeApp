@@ -10,6 +10,15 @@ const fetch = require('node-fetch');
 
 require('dotenv').config();
 
+
+// ✅ Add CSP headers for Onshape iframe embedding
+fastify.addHook('onSend', async (request, reply, payload) => {
+  reply.header('Content-Security-Policy', "frame-ancestors https://*.onshape.com");
+  reply.header('X-Frame-Options', "ALLOW-FROM https://*.onshape.com");
+  return payload;
+});
+
+
 const ONSHAPE_AUTH_URL = 'https://oauth.onshape.com/oauth/authorize';
 const ONSHAPE_TOKEN_URL = 'https://oauth.onshape.com/oauth/token';
 const ONSHAPE_API_BASE_URL = 'https://cad.onshape.com/api/v6';
