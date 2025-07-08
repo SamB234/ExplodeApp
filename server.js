@@ -7,17 +7,9 @@ const fastifyCookie = require('@fastify/cookie');
 const fastifySession = require('@fastify/session');
 const handlebars = require('handlebars');
 const fetch = require('node-fetch');
+const fastifyHelmet = require('@fastify/helmet'); // ✅ Import helmet
 
 require('dotenv').config();
-
-
-// ✅ Add CSP headers for Onshape iframe embedding
-fastify.addHook('onSend', async (request, reply, payload) => {
-  reply.header('Content-Security-Policy', "frame-ancestors https://*.onshape.com");
-  reply.header('X-Frame-Options', "ALLOW-FROM https://*.onshape.com");
-  return payload;
-});
-
 
 const ONSHAPE_AUTH_URL = 'https://oauth.onshape.com/oauth/authorize';
 const ONSHAPE_TOKEN_URL = 'https://oauth.onshape.com/oauth/token';
@@ -25,6 +17,31 @@ const ONSHAPE_API_BASE_URL = 'https://cad.onshape.com/api/v6';
 
 handlebars.registerHelper('json', function (context) {
   return JSON.stringify(context, null, 2);
+});
+
+fastify.register(fastifyHelmet, {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      fontSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      frameAncestors: [
+        "'self'",
+        "*.onshape.com",
+        "*.dev.onshape.com",
+        "*.creo.ptc.com",
+        "https://onshapesandbox4.thoughtindustries.com",
+        "https://localhost.dev.onshape.com:8000"
+      ],
+      objectSrc: ["'none'"], // ✅ Hardened
+      baseUri: ["'self'"],
+      workerSrc: ["'self'", "blob:"],
+    },
+    reportOnly: false
+  }
 });
 
 fastify.register(fastifyCookie);
@@ -52,6 +69,8 @@ async function ensureValidToken(request, reply, done) {
   if (!session || !session.access_token || !session.expires_at) {
     return reply.redirect('/oauthStart');
   }
+}
+
 
   const now = Date.now();
   if (now > session.expires_at - 60000) {
