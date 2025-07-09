@@ -31,6 +31,15 @@ fastify.register(fastifyStatic, {
   prefix: '/public/',
 });
 
+
+// ✅ Add this after the last fastify.register
+fastify.addHook('onSend', async (request, reply, payload) => {
+  reply.header('Content-Security-Policy', 'frame-ancestors https://cad.onshape.com');
+  reply.header('X-Frame-Options', ''); // Optional: explicitly clears it
+  return payload;
+});
+
+
 fastify.register(fastifyFormbody);
 
 fastify.register(fastifyView, {
