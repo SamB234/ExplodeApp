@@ -10,6 +10,7 @@ const fetch = require('node-fetch');
 
 require('dotenv').config();
 
+
 const ONSHAPE_AUTH_URL = 'https://oauth.onshape.com/oauth/authorize';
 const ONSHAPE_TOKEN_URL = 'https://oauth.onshape.com/oauth/token';
 const ONSHAPE_API_BASE_URL = 'https://cad.onshape.com/api/v6';
@@ -21,7 +22,7 @@ handlebars.registerHelper('json', function (context) {
 fastify.register(fastifyCookie);
 fastify.register(fastifySession, {
   secret: process.env.SESSION_SECRET || 'a-very-secret-key',
-  cookie: { secure: false }, // set secure: true if using HTTPS in prod
+  cookie: { secure: false },
   saveUninitialized: false,
 });
 
@@ -29,6 +30,15 @@ fastify.register(fastifyStatic, {
   root: path.join(__dirname, 'public'),
   prefix: '/public/',
 });
+
+
+// ✅ Add this after the last fastify.register
+fastify.addHook('onSend', async (request, reply, payload) => {
+  reply.header('Content-Security-Policy', 'frame-ancestors https://cad.onshape.com');
+  reply.header('X-Frame-Options', ''); // Optional: explicitly clears it
+  return payload;
+});
+
 
 fastify.register(fastifyFormbody);
 
@@ -38,26 +48,21 @@ fastify.register(fastifyView, {
   layout: false,
 });
 
-// Middleware to refresh access token if expired
 async function ensureValidToken(request, reply, done) {
   const session = request.session;
-  if (!session.access_token || !session.expires_at) {
-    // No token at all
+  if (!session || !session.access_token || !session.expires_at) {
     return reply.redirect('/oauthStart');
   }
 
   const now = Date.now();
   if (now > session.expires_at - 60000) {
-    // Token expired or about to expire in 1 minute, refresh it
     try {
       const res = await fetch(ONSHAPE_TOKEN_URL, {
         method: 'POST',
         headers: {
           'Authorization':
             'Basic ' +
-            Buffer.from(
-              `${process.env.ONSHAPE_CLIENT_ID}:${process.env.ONSHAPE_CLIENT_SECRET}`
-            ).toString('base64'),
+            Buffer.from(`${process.env.ONSHAPE_CLIENT_ID}:${process.env.ONSHAPE_CLIENT_SECRET}`).toString('base64'),
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
@@ -72,27 +77,30 @@ async function ensureValidToken(request, reply, done) {
       }
 
       const data = await res.json();
-
       session.access_token = data.access_token;
       session.refresh_token = data.refresh_token || session.refresh_token;
       session.expires_at = Date.now() + data.expires_in * 1000;
       await session.save();
-
-      done();
     } catch (err) {
       fastify.log.error('Error refreshing token:', err);
       return reply.redirect('/oauthStart');
     }
-  } else {
-    done();
   }
+
+  done();
 }
 
-// Home route: expects query params from Onshape launch
-fastify.get('/', async (request, reply) => {
-  const { d, w, e } = request.query;
+function extractDocumentParams(query) {
+  return {
+    documentId: query.d || query.documentId,
+    workspaceId: query.w || query.workspaceId,
+    elementId: query.e || query.elementId,
+  };
+}
 
-  // If no token in session, prompt OAuth start
+fastify.get('/', async (request, reply) => {
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+
   if (!request.session.access_token) {
     return reply.view('index.hbs', {
       title: 'Onshape Exploded View App',
@@ -101,32 +109,31 @@ fastify.get('/', async (request, reply) => {
     });
   }
 
-  // Render assembly view with doc/workspace/element and token from session
   return reply.view('assembly_view.hbs', {
     title: 'Exploded View',
-    documentId: d || '',
-    workspaceId: w || '',
-    elementId: e || '',
+    documentId,
+    workspaceId,
+    elementId,
     accessToken: request.session.access_token,
   });
 });
 
-// API: Get assembly data, uses stored access token and refreshes if needed
 fastify.get('/api/assemblydata', { preHandler: ensureValidToken }, async (request, reply) => {
-  const { d, w, e } = request.query;
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
 
-  if (!d || !w || !e) {
+  if (!documentId || !workspaceId || !elementId) {
     return reply.status(400).send('Missing document context parameters.');
   }
 
-  const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${d}/w/${w}/e/${e}/assemblydefinition`;
-  const headers = {
-    Authorization: `Bearer ${request.session.access_token}`,
-    Accept: 'application/json',
-  };
+  const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/assemblydefinition`;
 
   try {
-    const res = await fetch(url, { headers });
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${request.session.access_token}`,
+        Accept: 'application/json',
+      },
+    });
 
     if (!res.ok) {
       const errorText = await res.text();
@@ -142,22 +149,22 @@ fastify.get('/api/assemblydata', { preHandler: ensureValidToken }, async (reques
   }
 });
 
-// API: Get GLTF model, uses stored access token and refreshes if needed
 fastify.get('/api/gltf-model', { preHandler: ensureValidToken }, async (request, reply) => {
-  const { d, w, e } = request.query;
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
 
-  if (!d || !w || !e) {
+  if (!documentId || !workspaceId || !elementId) {
     return reply.status(400).send('Missing document context parameters for GLTF model.');
   }
 
-  const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${d}/w/${w}/e/${e}/gltf?outputFacetSettings=true&mode=flat`;
-  const headers = {
-    Authorization: `Bearer ${request.session.access_token}`,
-    Accept: 'model/gltf+json',
-  };
+  const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/gltf?outputFacetSettings=true&mode=flat`;
 
   try {
-    const res = await fetch(url, { headers });
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${request.session.access_token}`,
+        Accept: 'model/gltf+json',
+      },
+    });
 
     if (!res.ok) {
       const errorText = await res.text();
@@ -166,7 +173,6 @@ fastify.get('/api/gltf-model', { preHandler: ensureValidToken }, async (request,
     }
 
     reply.header('Content-Type', 'model/gltf+json');
-    // Stream the response body
     return reply.send(res.body);
   } catch (err) {
     fastify.log.error('Error in /api/gltf-model:', err);
@@ -174,12 +180,75 @@ fastify.get('/api/gltf-model', { preHandler: ensureValidToken }, async (request,
   }
 });
 
-// Start OAuth flow
+// 🔧 New: Exploded view config
+fastify.get('/api/exploded-config', { preHandler: ensureValidToken }, async (request, reply) => {
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+
+  if (!documentId || !workspaceId || !elementId) {
+    return reply.status(400).send('Missing document context parameters for exploded config.');
+  }
+
+  const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/explodedviews`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${request.session.access_token}`,
+        Accept: 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      fastify.log.error(`Exploded config error: ${res.status} ${errorText}`);
+      return reply.status(res.status).send(`Error: ${errorText}`);
+    }
+
+    const data = await res.json();
+    return reply.send(data);
+  } catch (err) {
+    fastify.log.error('Error in /api/exploded-config:', err);
+    return reply.status(500).send('Internal Server Error fetching exploded config.');
+  }
+});
+
+// 🔧 New: Mates
+fastify.get('/api/mates', { preHandler: ensureValidToken }, async (request, reply) => {
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+
+  if (!documentId || !workspaceId || !elementId) {
+    return reply.status(400).send('Missing document context parameters for mates.');
+  }
+
+  const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/mates`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${request.session.access_token}`,
+        Accept: 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      fastify.log.error(`Mate fetch error: ${res.status} ${errorText}`);
+      return reply.status(res.status).send(`Error: ${errorText}`);
+    }
+
+    const data = await res.json();
+    return reply.send(data);
+  } catch (err) {
+    fastify.log.error('Error in /api/mates:', err);
+    return reply.status(500).send('Internal Server Error fetching mates.');
+  }
+});
+
 fastify.get('/oauthStart', async (request, reply) => {
   const clientId = process.env.ONSHAPE_CLIENT_ID;
   const redirectUri = process.env.ONSHAPE_REDIRECT_URI;
   const scope = 'OAuth2ReadPII OAuth2Read OAuth2Write';
-  const state = 'state123'; // You can implement proper CSRF state token here
+  const state = 'state123';
 
   if (!clientId || !redirectUri) {
     return reply.status(500).send('Missing ONSHAPE_CLIENT_ID or ONSHAPE_REDIRECT_URI.');
@@ -196,27 +265,22 @@ fastify.get('/oauthStart', async (request, reply) => {
   return reply.redirect(`${ONSHAPE_AUTH_URL}?${params.toString()}`);
 });
 
-// OAuth redirect callback to exchange code for tokens
 fastify.get('/oauthRedirect', async (request, reply) => {
-  const { code, state } = request.query;
+  const { code } = request.query;
 
   if (!code) return reply.status(400).send('Missing authorization code.');
 
   try {
-    const clientId = process.env.ONSHAPE_CLIENT_ID;
-    const clientSecret = process.env.ONSHAPE_CLIENT_SECRET;
-    const redirectUri = process.env.ONSHAPE_REDIRECT_URI;
-
     const res = await fetch(ONSHAPE_TOKEN_URL, {
       method: 'POST',
       headers: {
-        Authorization: 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64'),
+        Authorization: 'Basic ' + Buffer.from(`${process.env.ONSHAPE_CLIENT_ID}:${process.env.ONSHAPE_CLIENT_SECRET}`).toString('base64'),
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: redirectUri,
+        redirect_uri: process.env.ONSHAPE_REDIRECT_URI,
       }),
     });
 
@@ -228,13 +292,11 @@ fastify.get('/oauthRedirect', async (request, reply) => {
 
     const data = await res.json();
 
-    // Save tokens and expiration in session
     request.session.access_token = data.access_token;
     request.session.refresh_token = data.refresh_token;
     request.session.expires_at = Date.now() + data.expires_in * 1000;
     await request.session.save();
 
-    // Redirect to home or app page
     return reply.redirect('/');
   } catch (err) {
     fastify.log.error('OAuth redirect error:', err);
@@ -242,7 +304,6 @@ fastify.get('/oauthRedirect', async (request, reply) => {
   }
 });
 
-// List documents example (optional)
 fastify.get('/listDocuments', { preHandler: ensureValidToken }, async (request, reply) => {
   try {
     const res = await fetch(`${ONSHAPE_API_BASE_URL}/documents`, {
