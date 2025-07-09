@@ -131,6 +131,10 @@ fastify.get('/', async (request, reply) => {
   const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
   const accessToken = request.session.access_token || request.query.accessToken;
 
+  if (!request.session.access_token && request.query.accessToken) {
+  request.session.access_token = request.query.accessToken;
+}
+ 
   if (!accessToken) {
     return reply.view('index.hbs', {
       title: 'Onshape Exploded View App',
