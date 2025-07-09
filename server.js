@@ -63,19 +63,6 @@ fastify.register(fastifyView, {
   layout: false,
 });
 
-
-// ✅ Put this redirect route here
-fastify.get('/', async (request, reply) => {
-  const { d, w, e, accessToken } = request.query;
-
-  if (d && w && e && accessToken) {
-    return reply.redirect(`/oauthStart?d=${d}&w=${w}&e=${e}&accessToken=${accessToken}`);
-  } else {
-    return reply.redirect('/oauthStart');
-  }
-});
-
-
 async function ensureValidToken(request, reply, done) {
   const session = request.session;
   if (!session || !session.access_token || !session.expires_at) {
