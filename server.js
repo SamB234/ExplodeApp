@@ -7,9 +7,9 @@ const fastifyCookie = require('@fastify/cookie');
 const fastifySession = require('@fastify/session');
 const handlebars = require('handlebars');
 const fetch = require('node-fetch');
-const fastifyHelmet = require('@fastify/helmet');
 
 require('dotenv').config();
+
 
 const ONSHAPE_AUTH_URL = 'https://oauth.onshape.com/oauth/authorize';
 const ONSHAPE_TOKEN_URL = 'https://oauth.onshape.com/oauth/token';
@@ -17,38 +17,6 @@ const ONSHAPE_API_BASE_URL = 'https://cad.onshape.com/api/v6';
 
 handlebars.registerHelper('json', function (context) {
   return JSON.stringify(context, null, 2);
-});
-
-fastify.register(fastifyHelmet, {
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'none'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      fontSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"],
-      frameAncestors: [
-        "https://*.dev.graebert.com",
-        "https://*.onshape.io",
-        "https://td.doubleclick.net",
-        "https://js.stripe.com",
-        "https://www.recaptcha.net",
-        "https://*.onshape.com",
-        "https://fast.wistia.net",
-        "https://fast.wistia.com",
-        "https://www.youtube.com",
-        "https://js.driftt.com",
-        "https://www.googletagmanager.com",
-        "https://explodeapp.onrender.com",
-        "https://explodeapp.onrender.com/oauthStart"
-      ],
-      objectSrc: ["'none'"],
-      baseUri: ["'self'"],
-      workerSrc: ["'self'", "blob:"],
-    },
-    reportOnly: false
-  }
 });
 
 fastify.register(fastifyCookie);
@@ -71,7 +39,7 @@ fastify.register(fastifyView, {
   layout: false,
 });
 
-async function ensureValidToken(request, reply) {
+async function ensureValidToken(request, reply, done) {
   const session = request.session;
   if (!session || !session.access_token || !session.expires_at) {
     return reply.redirect('/oauthStart');
@@ -95,20 +63,22 @@ async function ensureValidToken(request, reply) {
       });
 
       if (!res.ok) {
-        throw new Error(`Failed to refresh token: ${res.statusText}`);
+        fastify.log.error('Failed to refresh token', await res.text());
+        return reply.redirect('/oauthStart');
       }
-      const data = await res.json();
 
+      const data = await res.json();
       session.access_token = data.access_token;
       session.refresh_token = data.refresh_token || session.refresh_token;
       session.expires_at = Date.now() + data.expires_in * 1000;
-
       await session.save();
     } catch (err) {
-      console.error('Error refreshing token:', err);
+      fastify.log.error('Error refreshing token:', err);
       return reply.redirect('/oauthStart');
     }
   }
+
+  done();
 }
 
 function extractDocumentParams(query) {
@@ -201,6 +171,7 @@ fastify.get('/api/gltf-model', { preHandler: ensureValidToken }, async (request,
   }
 });
 
+// 🔧 New: Exploded view config
 fastify.get('/api/exploded-config', { preHandler: ensureValidToken }, async (request, reply) => {
   const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
 
@@ -232,6 +203,7 @@ fastify.get('/api/exploded-config', { preHandler: ensureValidToken }, async (req
   }
 });
 
+// 🔧 New: Mates
 fastify.get('/api/mates', { preHandler: ensureValidToken }, async (request, reply) => {
   const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
 
@@ -264,18 +236,96 @@ fastify.get('/api/mates', { preHandler: ensureValidToken }, async (request, repl
 });
 
 fastify.get('/oauthStart', async (request, reply) => {
-  const redirectUri = encodeURIComponent(process.env.OAUTH_REDIRECT_URI);
-  const url = `${ONSHAPE_AUTH_URL}?response_type=code&client_id=${process.env.ONSHAPE_CLIENT_ID}&redirect_uri=${redirectUri}&scope=read+write&state=xyz`;
-  return reply.redirect(url);
+  const clientId = process.env.ONSHAPE_CLIENT_ID;
+  const redirectUri = process.env.ONSHAPE_REDIRECT_URI;
+  const scope = 'OAuth2ReadPII OAuth2Read OAuth2Write';
+  const state = 'state123';
+
+  if (!clientId || !redirectUri) {
+    return reply.status(500).send('Missing ONSHAPE_CLIENT_ID or ONSHAPE_REDIRECT_URI.');
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: 'code',
+    redirect_uri: redirectUri,
+    scope,
+    state,
+  });
+
+  return reply.redirect(`${ONSHAPE_AUTH_URL}?${params.toString()}`);
 });
 
-// Removed /oauthCallback
+fastify.get('/oauthRedirect', async (request, reply) => {
+  const { code } = request.query;
 
-const PORT = process.env.PORT || 3000;
-fastify.listen(PORT, '0.0.0.0', (err, address) => {
-  if (err) {
+  if (!code) return reply.status(400).send('Missing authorization code.');
+
+  try {
+    const res = await fetch(ONSHAPE_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${process.env.ONSHAPE_CLIENT_ID}:${process.env.ONSHAPE_CLIENT_SECRET}`).toString('base64'),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: process.env.ONSHAPE_REDIRECT_URI,
+      }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      fastify.log.error('Token exchange failed:', res.status, data);
+      return reply.status(res.status).send(`Token exchange failed: ${data.error_description || JSON.stringify(data)}`);
+    }
+
+    const data = await res.json();
+
+    request.session.access_token = data.access_token;
+    request.session.refresh_token = data.refresh_token;
+    request.session.expires_at = Date.now() + data.expires_in * 1000;
+    await request.session.save();
+
+    return reply.redirect('/');
+  } catch (err) {
+    fastify.log.error('OAuth redirect error:', err);
+    return reply.status(500).send('Token exchange failed due to server error.');
+  }
+});
+
+fastify.get('/listDocuments', { preHandler: ensureValidToken }, async (request, reply) => {
+  try {
+    const res = await fetch(`${ONSHAPE_API_BASE_URL}/documents`, {
+      headers: {
+        Authorization: `Bearer ${request.session.access_token}`,
+        Accept: 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      fastify.log.error('Error fetching documents:', error);
+      return reply.status(res.status).send(`Failed to fetch documents: ${error.message}`);
+    }
+
+    const documents = await res.json();
+    return reply.view('documents.hbs', { documents });
+  } catch (err) {
+    fastify.log.error('Error fetching documents:', err);
+    return reply.status(500).send('Server error while fetching documents.');
+  }
+});
+
+const start = async () => {
+  try {
+    await fastify.listen({ port: process.env.PORT || 3000, host: '0.0.0.0' });
+    fastify.log.info(`Server running on port ${fastify.server.address().port}`);
+  } catch (err) {
     fastify.log.error(err);
     process.exit(1);
   }
-  fastify.log.info(`Server listening at ${address}`);
-});
+};
+
+start();
