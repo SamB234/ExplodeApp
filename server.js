@@ -31,11 +31,26 @@ fastify.register(fastifyStatic, {
   prefix: '/public/',
 });
 
-
+/*
 // ✅ Add this after the last fastify.register
 fastify.addHook('onSend', async (request, reply, payload) => {
   reply.header('Content-Security-Policy', 'frame-ancestors https://cad.onshape.com');
   reply.header('X-Frame-Options', ''); // Optional: explicitly clears it
+  return payload;
+});
+*/
+
+fastify.addHook('onSend', async (request, reply, payload) => {
+  reply.header('Content-Security-Policy', [
+    "default-src 'self';",
+    "script-src 'self' 'unsafe-inline';", 
+    "style-src 'self' 'unsafe-inline';",
+    "img-src 'self' data:;",
+    "connect-src 'self' https://cad.onshape.com;",
+    "frame-ancestors https://cad.onshape.com;"
+  ].join(' '));
+  
+  reply.header('X-Frame-Options', 'ALLOW-FROM https://cad.onshape.com'); // Optional, legacy
   return payload;
 });
 
