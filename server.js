@@ -50,7 +50,7 @@ fastify.addHook('onSend', async (request, reply, payload) => {
     "frame-ancestors https://cad.onshape.com;"
   ].join(' '));
   
-  reply.header('X-Frame-Options', 'ALLOW-FROM https://cad.onshape.com'); // Optional, legacy
+  //reply.header('X-Frame-Options', 'ALLOW-FROM https://cad.onshape.com'); // Optional, legacy
   return payload;
 });
 
