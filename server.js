@@ -7,7 +7,7 @@ const fastifyCookie = require('@fastify/cookie');
 const fastifySession = require('@fastify/session');
 const handlebars = require('handlebars');
 const fetch = require('node-fetch');
-const fastifyHelmet = require('@fastify/helmet'); // ✅ Import helmet
+const fastifyHelmet = require('@fastify/helmet');
 
 require('dotenv').config();
 
@@ -22,28 +22,28 @@ handlebars.registerHelper('json', function (context) {
 fastify.register(fastifyHelmet, {
   contentSecurityPolicy: {
     directives: {
-    defaultSrc: ["'none'"],
+      defaultSrc: ["'none'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
       fontSrc: ["'self'", "data:"],
       connectSrc: ["'self'"],
       frameAncestors: [
-  "https://*.dev.graebert.com",
-  "https://*.onshape.io",
-  "https://td.doubleclick.net",
-  "https://js.stripe.com",
-  "https://www.recaptcha.net",
-  "https://*.onshape.com",
-  "https://fast.wistia.net",
-  "https://fast.wistia.com",
-  "https://www.youtube.com",
-  "https://js.driftt.com",
-  "https://www.googletagmanager.com",
-  "https://explodeapp.onrender.com",
-  "https://explodeapp.onrender.com/oauthStart"      
+        "https://*.dev.graebert.com",
+        "https://*.onshape.io",
+        "https://td.doubleclick.net",
+        "https://js.stripe.com",
+        "https://www.recaptcha.net",
+        "https://*.onshape.com",
+        "https://fast.wistia.net",
+        "https://fast.wistia.com",
+        "https://www.youtube.com",
+        "https://js.driftt.com",
+        "https://www.googletagmanager.com",
+        "https://explodeapp.onrender.com",
+        "https://explodeapp.onrender.com/oauthStart"
       ],
-      objectSrc: ["'none'"], // ✅ Hardened
+      objectSrc: ["'none'"],
       baseUri: ["'self'"],
       workerSrc: ["'self'", "blob:"],
     },
@@ -71,7 +71,6 @@ fastify.register(fastifyView, {
   layout: false,
 });
 
-// *** Key Fix: make ensureValidToken async, remove done callback ***
 async function ensureValidToken(request, reply) {
   const session = request.session;
   if (!session || !session.access_token || !session.expires_at) {
@@ -105,16 +104,13 @@ async function ensureValidToken(request, reply) {
       session.expires_at = Date.now() + data.expires_in * 1000;
 
       await session.save();
-      // No done() because this is async preHandler
     } catch (err) {
       console.error('Error refreshing token:', err);
       return reply.redirect('/oauthStart');
     }
   }
-  // If token still valid, or after refresh, just continue
 }
 
-// Helper to extract document params from query
 function extractDocumentParams(query) {
   return {
     documentId: query.d || query.documentId,
@@ -205,7 +201,6 @@ fastify.get('/api/gltf-model', { preHandler: ensureValidToken }, async (request,
   }
 });
 
-// Exploded view config
 fastify.get('/api/exploded-config', { preHandler: ensureValidToken }, async (request, reply) => {
   const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
 
@@ -237,7 +232,6 @@ fastify.get('/api/exploded-config', { preHandler: ensureValidToken }, async (req
   }
 });
 
-// Mates
 fastify.get('/api/mates', { preHandler: ensureValidToken }, async (request, reply) => {
   const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
 
@@ -269,53 +263,13 @@ fastify.get('/api/mates', { preHandler: ensureValidToken }, async (request, repl
   }
 });
 
-// OAuth start
 fastify.get('/oauthStart', async (request, reply) => {
   const redirectUri = encodeURIComponent(process.env.OAUTH_REDIRECT_URI);
   const url = `${ONSHAPE_AUTH_URL}?response_type=code&client_id=${process.env.ONSHAPE_CLIENT_ID}&redirect_uri=${redirectUri}&scope=read+write&state=xyz`;
   return reply.redirect(url);
 });
 
-// OAuth callback
-fastify.get('/oauthCallback', async (request, reply) => {
-  const { code, state } = request.query;
-  if (!code) {
-    return reply.status(400).send('Missing code parameter');
-  }
-
-  try {
-    const res = await fetch(ONSHAPE_TOKEN_URL, {
-      method: 'POST',
-      headers: {
-        Authorization:
-          'Basic ' +
-          Buffer.from(`${process.env.ONSHAPE_CLIENT_ID}:${process.env.ONSHAPE_CLIENT_SECRET}`).toString('base64'),
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: process.env.OAUTH_REDIRECT_URI,
-      }),
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      return reply.status(res.status).send(`Token exchange failed: ${errorText}`);
-    }
-
-    const data = await res.json();
-    request.session.access_token = data.access_token;
-    request.session.refresh_token = data.refresh_token;
-    request.session.expires_at = Date.now() + data.expires_in * 1000;
-    await request.session.save();
-
-    return reply.redirect('/');
-  } catch (err) {
-    fastify.log.error('OAuth callback error:', err);
-    return reply.status(500).send('OAuth callback failed');
-  }
-});
+// Removed /oauthCallback
 
 const PORT = process.env.PORT || 3000;
 fastify.listen(PORT, '0.0.0.0', (err, address) => {
