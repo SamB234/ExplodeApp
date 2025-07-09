@@ -50,7 +50,7 @@ fastify.addHook('onSend', async (request, reply, payload) => {
     "frame-ancestors https://cad.onshape.com;"
   ].join(' '));
   
-  //reply.header('X-Frame-Options', 'ALLOW-FROM https://cad.onshape.com'); // Optional, legacy
+  reply.header('X-Frame-Options', 'ALLOW-FROM https://cad.onshape.com'); // Optional, legacy
   return payload;
 });
 
@@ -113,10 +113,25 @@ function extractDocumentParams(query) {
   };
 }
 
+
+/*
 fastify.get('/', async (request, reply) => {
   const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
 
   if (!request.session.access_token) {
+    return reply.view('index.hbs', {
+      title: 'Onshape Exploded View App',
+      message: 'Please authorize the app first.',
+      oauthUrl: '/oauthStart',
+    });
+  }
+  */
+
+fastify.get('/', async (request, reply) => {
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+  const accessToken = request.session.access_token || request.query.accessToken;
+
+  if (!accessToken) {
     return reply.view('index.hbs', {
       title: 'Onshape Exploded View App',
       message: 'Please authorize the app first.',
