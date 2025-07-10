@@ -1,14 +1,24 @@
-// server.js
 const express = require('express');
 const session = require('express-session');
 const axios = require('axios');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
+const hbs = require('hbs');
 
 dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Set up Handlebars view engine
+app.set('view engine', 'hbs');
+app.set('views', path.join(__dirname, 'src/pages'));
+
+// Serve static files like CSS
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Middleware
 app.use(express.json());
 app.use(cors());
 app.use(session({
@@ -17,9 +27,7 @@ app.use(session({
   saveUninitialized: true,
 }));
 
-const PORT = process.env.PORT || 3000;
-
-// ENV vars you’ll need:
+// ENV vars you’ll need in your .env:
 // ONSHAPE_CLIENT_ID
 // ONSHAPE_CLIENT_SECRET
 // ONSHAPE_REDIRECT_URI
@@ -28,8 +36,9 @@ const ONSHAPE_AUTH_URL = 'https://oauth.onshape.com/oauth/authorize';
 const ONSHAPE_TOKEN_URL = 'https://oauth.onshape.com/oauth/token';
 const ONSHAPE_API_URL = 'https://cad.onshape.com/api';
 
+// Routes
 app.get('/', (req, res) => {
-  res.send('Onshape Connected App Backend');
+  res.render('index'); // renders src/pages/index.hbs
 });
 
 app.get('/auth', (req, res) => {
@@ -51,13 +60,31 @@ app.get('/oauth-callback', async (req, res) => {
     });
 
     req.session.access_token = response.data.access_token;
-    res.redirect('/dashboard'); // Or wherever you want to go next
+    res.redirect('/documents'); // Or wherever you want to go next
   } catch (error) {
     console.error('OAuth Callback Error:', error.response?.data || error.message);
-    res.status(500).send('OAuth failed');
+    res.render('error', { message: 'OAuth failed' });
   }
 });
 
+app.get('/documents', (req, res) => {
+  if (!req.session.access_token) {
+    return res.redirect('/auth');
+  }
+
+  // Just a placeholder page for now
+  res.render('documents');
+});
+
+app.get('/assembly-view', (req, res) => {
+  if (!req.session.access_token) {
+    return res.redirect('/auth');
+  }
+
+  res.render('assembly_view');
+});
+
+// Example API route
 app.get('/api/mates/:documentId/:workspaceId/:elementId', async (req, res) => {
   const { documentId, workspaceId, elementId } = req.params;
 
