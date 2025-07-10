@@ -24,12 +24,17 @@ handlebars.registerHelper('json', function (context) {
 fastify.register(fastifyCookie);
 fastify.register(fastifySession, {
   secret: process.env.SESSION_SECRET || 'a-very-secret-key',
-  cookie: { secure: true,
-          httpOnly: true,
+  cookie: {
+   // secure: true,
+    secure: process.env.NODE_ENV === 'production', // true for HTTPS only
+    httpOnly: true,
     sameSite: 'lax',
-          },  //false 10.07.25
+    },  //false 10.07.25
+  
   saveUninitialized: false,
+
 });
+
 
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, 'public'),
