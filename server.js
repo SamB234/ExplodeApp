@@ -22,7 +22,10 @@ handlebars.registerHelper('json', function (context) {
 fastify.register(fastifyCookie);
 fastify.register(fastifySession, {
   secret: process.env.SESSION_SECRET || 'a-very-secret-key',
-  cookie: { secure: false },
+  cookie: { secure: true,
+          httpOnly: true,
+    sameSite: 'lax',
+          },  //false 10.07.25
   saveUninitialized: false,
 });
 
@@ -137,6 +140,7 @@ fastify.get('/', async (request, reply) => {
 
   if (!request.session.access_token && request.query.accessToken) {
   request.session.access_token = request.query.accessToken;
+  await request.session.save();  // add this
 }
  
   if (!accessToken) {
