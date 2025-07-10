@@ -164,7 +164,10 @@ fastify.get('/api/assemblydata', { preHandler: ensureValidToken }, async (reques
   }
 
   const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/assemblydefinition`;
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
 
+
+  
   try {
     const res = await fetch(url, {
       headers: {
@@ -195,6 +198,7 @@ fastify.get('/api/gltf-model', { preHandler: ensureValidToken }, async (request,
   }
 
   const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/gltf?outputFacetSettings=true&mode=flat`;
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
 
   try {
     const res = await fetch(url, {
@@ -307,6 +311,7 @@ fastify.get('/oauthRedirect', async (request, reply) => {
   const { code } = request.query;
 
   if (!code) return reply.status(400).send('Missing authorization code.');
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
 
   try {
     const res = await fetch(ONSHAPE_TOKEN_URL, {
@@ -341,6 +346,9 @@ fastify.get('/oauthRedirect', async (request, reply) => {
     return reply.status(500).send('Token exchange failed due to server error.');
   }
 });
+
+
+fastify.log.info(`Using access token: ${request.session.access_token}`);
 
 fastify.get('/listDocuments', { preHandler: ensureValidToken }, async (request, reply) => {
   try {
