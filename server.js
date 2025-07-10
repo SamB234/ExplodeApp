@@ -148,6 +148,11 @@ fastify.get('/', async (request, reply) => {
   if (!request.session.access_token && request.query.accessToken) {
   request.session.access_token = request.query.accessToken;
   await request.session.save();  // add this
+  
+    fastify.log.info('Saved session:', {
+  access_token: request.session.access_token
+});
+    
 }
  
   if (!accessToken) {
@@ -356,6 +361,11 @@ fastify.get('/oauthRedirect', async (request, reply) => {
     request.session.refresh_token = data.refresh_token;
     request.session.expires_at = Date.now() + data.expires_in * 1000;
     await request.session.save();
+
+fastify.log.info('Saved session:', {
+  access_token: request.session.access_token
+});
+
 
     return reply.redirect('/');
   } catch (err) {
