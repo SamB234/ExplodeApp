@@ -1,5 +1,7 @@
 const path = require('path');
-const fastify = require('fastify')({ logger: true });
+//const fastify = require('fastify')({ logger: true });
+const fastify = require('fastify')({ logger: true, trustProxy: true });
+
 const fastifyStatic = require('@fastify/static');
 const fastifyFormbody = require('@fastify/formbody');
 const fastifyView = require('@fastify/view');
