@@ -1,5 +1,3 @@
-Integrated App Working - Before Switch to Connected
-
 const path = require('path');
 //const fastify = require('fastify')({ logger: true });
 const fastify = require('fastify')({ logger: true, trustProxy: true });
