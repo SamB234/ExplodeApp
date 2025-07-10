@@ -69,6 +69,10 @@ async function ensureValidToken(request, reply, done) {
     return reply.redirect('/oauthStart');
   }
 
+
+fastify.log.info(`Using access token: ${request.session.access_token}`);
+
+  
   const now = Date.now();
   if (now > session.expires_at - 60000) {
     try {
