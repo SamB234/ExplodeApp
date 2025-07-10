@@ -57,10 +57,11 @@ fastify.addHook('onSend', async (request, reply, payload) => {
     "style-src 'self' 'unsafe-inline';",
     "img-src 'self' data:;",
     "connect-src 'self' https://cad.onshape.com;",
-    "frame-ancestors https://cad.onshape.com;"
+   // "frame-ancestors https://*.onshape.com;"
+    "frame-ancestors 'self' https://cad.onshape.com https://*.onshape.com;",
   ].join(' '));
   
-  reply.header('X-Frame-Options', 'ALLOW-FROM https://cad.onshape.com'); // Optional, legacy
+ // reply.header('X-Frame-Options', 'ALLOW-FROM https://cad.onshape.com'); // Optional, legacy
   return payload;
 });
 
