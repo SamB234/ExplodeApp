@@ -53,7 +53,8 @@ fastify.addHook('onSend', async (request, reply, payload) => {
 fastify.addHook('onSend', async (request, reply, payload) => {
   reply.header('Content-Security-Policy', [
     "default-src 'self';",
-    "script-src 'self' 'unsafe-inline';", 
+   // "script-src 'self' 'unsafe-inline';", 
+    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;",
     "style-src 'self' 'unsafe-inline';",
     "img-src 'self' data:;",
     "connect-src 'self' https://cad.onshape.com;",
