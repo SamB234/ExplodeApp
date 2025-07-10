@@ -70,7 +70,7 @@ async function ensureValidToken(request, reply, done) {
   }
 
 
-fastify.log.info(`Using access token: ${request.session.access_token}`);
+
 
   
   const now = Date.now();
@@ -158,13 +158,14 @@ fastify.get('/', async (request, reply) => {
 
 fastify.get('/api/assemblydata', { preHandler: ensureValidToken }, async (request, reply) => {
   const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
 
   if (!documentId || !workspaceId || !elementId) {
     return reply.status(400).send('Missing document context parameters.');
   }
 
   const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/assemblydefinition`;
-  fastify.log.info(`Using access token: ${request.session.access_token}`);
+  
 
 
   
@@ -192,13 +193,14 @@ fastify.get('/api/assemblydata', { preHandler: ensureValidToken }, async (reques
 
 fastify.get('/api/gltf-model', { preHandler: ensureValidToken }, async (request, reply) => {
   const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
 
   if (!documentId || !workspaceId || !elementId) {
     return reply.status(400).send('Missing document context parameters for GLTF model.');
   }
 
   const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/gltf?outputFacetSettings=true&mode=flat`;
-  fastify.log.info(`Using access token: ${request.session.access_token}`);
+  
 
   try {
     const res = await fetch(url, {
@@ -225,6 +227,7 @@ fastify.get('/api/gltf-model', { preHandler: ensureValidToken }, async (request,
 // 🔧 New: Exploded view config
 fastify.get('/api/exploded-config', { preHandler: ensureValidToken }, async (request, reply) => {
   const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
 
   if (!documentId || !workspaceId || !elementId) {
     return reply.status(400).send('Missing document context parameters for exploded config.');
@@ -257,6 +260,7 @@ fastify.get('/api/exploded-config', { preHandler: ensureValidToken }, async (req
 // 🔧 New: Mates
 fastify.get('/api/mates', { preHandler: ensureValidToken }, async (request, reply) => {
   const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
 
   if (!documentId || !workspaceId || !elementId) {
     return reply.status(400).send('Missing document context parameters for mates.');
@@ -291,6 +295,7 @@ fastify.get('/oauthStart', async (request, reply) => {
   const redirectUri = process.env.ONSHAPE_REDIRECT_URI;
   const scope = 'OAuth2ReadPII OAuth2Read OAuth2Write';
   const state = 'state123';
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
 
   if (!clientId || !redirectUri) {
     return reply.status(500).send('Missing ONSHAPE_CLIENT_ID or ONSHAPE_REDIRECT_URI.');
@@ -309,9 +314,10 @@ fastify.get('/oauthStart', async (request, reply) => {
 
 fastify.get('/oauthRedirect', async (request, reply) => {
   const { code } = request.query;
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
 
   if (!code) return reply.status(400).send('Missing authorization code.');
-  fastify.log.info(`Using access token: ${request.session.access_token}`);
+
 
   try {
     const res = await fetch(ONSHAPE_TOKEN_URL, {
@@ -348,9 +354,11 @@ fastify.get('/oauthRedirect', async (request, reply) => {
 });
 
 
-fastify.log.info(`Using access token: ${request.session.access_token}`);
+
 
 fastify.get('/listDocuments', { preHandler: ensureValidToken }, async (request, reply) => {
+    fastify.log.info(`Using access token: ${request.session.access_token}`);
+
   try {
     const res = await fetch(`${ONSHAPE_API_BASE_URL}/documents`, {
       headers: {
