@@ -1,141 +1,43 @@
 <!DOCTYPE html>
-<html lang="en" >
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>{{title}}</title>
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f5f7fa;
-      margin: 0;
-      padding: 2rem;
-      color: #333;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      height: 100vh;
+      font-family: Arial, sans-serif;
+      margin: 40px;
     }
-    .container {
-      background: white;
-      border-radius: 8px;
-      padding: 2rem 3rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      max-width: 400px;
-      width: 100%;
-    }
-    h1 {
-      margin-bottom: 1rem;
-      font-weight: 600;
-      font-size: 1.8rem;
-      color: #0077cc;
-      text-align: center;
-    }
-    label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-weight: 500;
-    }
-    input[type=range] {
-      width: 100%;
-      margin-bottom: 0.5rem;
-      cursor: pointer;
-    }
-    #explodeValue {
-      font-weight: 600;
-      color: #0077cc;
-    }
-    .buttons {
-      margin-top: 1rem;
-      display: flex;
-      justify-content: space-between;
-    }
-    button {
-      background-color: #0077cc;
-      border: none;
-      color: white;
-      padding: 0.6rem 1.5rem;
-      border-radius: 4px;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background-color 0.25s ease;
-    }
-    button:disabled {
-      background-color: #999;
-      cursor: not-allowed;
-    }
-    button:hover:not(:disabled) {
-      background-color: #005fa3;
-    }
-    #status {
-      margin-top: 1rem;
-      font-style: italic;
-      color: #555;
-      text-align: center;
-      min-height: 1.2em;
+    label, input, button {
+      font-size: 1.2em;
+      margin: 8px 0;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>{{title}}</h1>
+  <h1>{{title}}</h1>
 
-    <form id="explodeForm">
-      <label for="explodeLevel">Explode Level: <span id="explodeValue">0</span></label>
-      <input
-        type="range"
-        id="explodeLevel"
-        name="explodeLevel"
-        min="0"
-        max="100"
-        value="0"
-      />
-      <div class="buttons">
-        <button type="submit" id="explodeBtn">Explode Assembly</button>
-        <button type="button" id="resetBtn">Reset</button>
-      </div>
-    </form>
-
-    <div id="status">Waiting for user input...</div>
-  </div>
+  <form id="explodeForm">
+    <label for="explodeLevel">Explode Level (0-100):</label>
+    <input type="range" id="explodeLevel" name="explodeLevel" min="0" max="100" value="0" />
+    <span id="explodeValue">0</span>
+    <br />
+    <button type="submit">Explode Assembly</button>
+  </form>
 
   <script>
     const explodeSlider = document.getElementById('explodeLevel');
     const explodeValue = document.getElementById('explodeValue');
-    const form = document.getElementById('explodeForm');
-    const explodeBtn = document.getElementById('explodeBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const status = document.getElementById('status');
-
     explodeSlider.addEventListener('input', () => {
       explodeValue.textContent = explodeSlider.value;
-      status.textContent = `Current explode level set to ${explodeSlider.value}`;
     });
 
-    form.addEventListener('submit', async (e) => {
+    const form = document.getElementById('explodeForm');
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
       const level = explodeSlider.value;
-      explodeBtn.disabled = true;
-      resetBtn.disabled = true;
-      status.textContent = `Sending explode command at level ${level}...`;
-
-      // Simulate API call delay
-      try {
-        // TODO: Replace this with real fetch/axios call to backend or Onshape API
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        status.textContent = `Assembly exploded at level ${level}!`;
-      } catch (error) {
-        status.textContent = `Error sending explode command: ${error.message}`;
-      } finally {
-        explodeBtn.disabled = false;
-        resetBtn.disabled = false;
-      }
-    });
-
-    resetBtn.addEventListener('click', () => {
-      explodeSlider.value = 0;
-      explodeValue.textContent = 0;
-      status.textContent = 'Explode level reset to 0.';
+      alert(`You would send explode command with level: ${level} here.`);
+      // Here you will eventually add code to call your backend or Onshape API.
     });
   </script>
 </body>
