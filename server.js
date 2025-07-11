@@ -159,7 +159,7 @@ fastify.get('/', async (request, reply) => {
  
   if (!accessToken) {
     return reply.view('index.hbs', {
-      title: 'Onshape Exploded View App',
+      title: 'Notes',
       message: 'Please authorize the app first.',
       oauthUrl: '/oauthStart',
     });
