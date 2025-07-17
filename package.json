@@ -20,6 +20,7 @@
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "axios": "^1.6.0",
+    "@supabase/supabase-js": "^2.39.1",
     "cors": "^2.8.5"
   },
   "engines": {
