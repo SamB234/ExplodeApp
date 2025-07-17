@@ -3,6 +3,8 @@
 import { supabase } from '/public/supabaseClient.js';
 
 
+// public/script.js
+
 const email = document.getElementById('email');
 const password = document.getElementById('password');
 const loginBtn = document.getElementById('loginBtn');
@@ -15,37 +17,62 @@ const notesSection = document.getElementById('notesSection');
 
 let currentUser = null;
 
+// Login using your own backend
 loginBtn?.addEventListener('click', async () => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: email.value,
-    password: password.value,
-  });
-  if (error) return alert(error.message);
-  currentUser = data.user;
-  await loadNotes();
-  toggleUI(true);
+  try {
+    const res = await fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.value, password: password.value }),
+    });
+    const result = await res.json();
+    if (!res.ok) return alert(result.error || 'Login failed');
+    currentUser = result.user;
+    await loadNotes();
+    toggleUI(true);
+  } catch (err) {
+    alert('Login request failed');
+  }
 });
 
+// Signup using your own backend
 signupBtn?.addEventListener('click', async () => {
-  const { data, error } = await supabase.auth.signUp({
-    email: email.value,
-    password: password.value,
-  });
-  if (error) return alert(error.message);
-  alert("Check your inbox to confirm your email.");
+  try {
+    const res = await fetch('/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.value, password: password.value }),
+    });
+    const result = await res.json();
+    if (!res.ok) return alert(result.error || 'Signup failed');
+    alert(result.message || 'Check your inbox to confirm your email.');
+  } catch (err) {
+    alert('Signup request failed');
+  }
 });
 
+// Logout (assuming your server handles session cookies)
 logoutBtn?.addEventListener('click', async () => {
-  await supabase.auth.signOut();
+  try {
+    await fetch('/logout', { method: 'POST' }); // optional logout endpoint on your server
+  } catch {}
+  currentUser = null;
   toggleUI(false);
+  notes.value = '';
 });
 
+// Save notes on input (still assuming Supabase backend or your own API)
 notes?.addEventListener('input', async () => {
   if (!currentUser) return;
-  await supabase.from('notes').upsert({
-    user_id: currentUser.id,
-    content: notes.value,
-  });
+  try {
+    await fetch('/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: notes.value }),
+    });
+  } catch (err) {
+    console.error('Failed to save notes', err);
+  }
 });
 
 function toggleUI(loggedIn) {
@@ -58,17 +85,33 @@ function toggleUI(loggedIn) {
   }
 }
 
+// Load notes for the logged-in user
 async function loadNotes() {
-  const { data: { user } } = await supabase.auth.getUser();
-  currentUser = user;
-  if (!user) return toggleUI(false);
-  const { data, error } = await supabase
-    .from('notes')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
-  notes.value = data?.content || '';
-  toggleUI(true);
+  try {
+    const res = await fetch('/user');
+    if (!res.ok) {
+      toggleUI(false);
+      return;
+    }
+    const userData = await res.json();
+    currentUser = userData.user;
+    if (!currentUser) {
+      toggleUI(false);
+      return;
+    }
+    const notesRes = await fetch('/notes');
+    if (!notesRes.ok) {
+      notes.value = '';
+      toggleUI(true);
+      return;
+    }
+    const notesData = await notesRes.json();
+    notes.value = notesData.content || '';
+    toggleUI(true);
+  } catch (err) {
+    toggleUI(false);
+  }
 }
 
+// Initialize UI based on session
 loadNotes();
