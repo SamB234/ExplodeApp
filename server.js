@@ -23,8 +23,16 @@ fastify.register(fastifyView, {
 fastify.register(fastifyFormbody);
 fastify.register(fastifyCookie);
 fastify.register(fastifySession, {
-  secret: 'a-very-secret-key', // You should use an environment variable in production!
-  cookie: { secure: false }, // set true if using HTTPS
+  secret: process.env.SESSION_SECRET || 'a-very-secret-key',
+  cookie: {
+   // secure: true,
+    secure: process.env.NODE_ENV === 'production', // true for HTTPS only
+    httpOnly: true,
+    sameSite: 'lax',
+    },  //false 10.07.25
+  
+  saveUninitialized: false,
+
 });
 
 // Routes
