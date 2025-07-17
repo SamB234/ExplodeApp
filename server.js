@@ -16,7 +16,7 @@ const fastify = Fastify({ logger: true, trustProxy: true });
 // --- Supabase setup ---
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // use the service role key on the server
+  process.env.SUPABASE_KEY // use the service role key on the server
 );
 
 // --- Onshape Constants ---
