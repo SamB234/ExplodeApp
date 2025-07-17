@@ -91,12 +91,6 @@ fastify.register(fastifyView, {
   layout: false,
 });
 
-async function ensureValidToken(request, reply, done) {
-  const session = request.session;
-  if (!session || !session.access_token || !session.expires_at) {
-    return reply.redirect('/oauthStart');
-  }
-
 
 // Define helper to get user by ID
 async function getUser(userId) {
@@ -104,6 +98,15 @@ async function getUser(userId) {
     where: { id: userId },
   });
 }
+
+async function ensureValidToken(request, reply, done) {
+  const session = request.session;
+  if (!session || !session.access_token || !session.expires_at) {
+    return reply.redirect('/oauthStart');
+  }
+
+
+
 
   const user = await usersCollection.findOne({ _id: new ObjectId(request.session.userId) });
   if (!user) {
