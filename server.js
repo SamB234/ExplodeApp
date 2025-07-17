@@ -17,7 +17,7 @@ fastify.register(fastifyStatic, {
 
 fastify.register(fastifyView, {
   engine: { handlebars },
-  root: path.join(__dirname, 'views'),
+  root: path.join(__dirname, 'pages'),
 });
 
 fastify.register(fastifyFormbody);
