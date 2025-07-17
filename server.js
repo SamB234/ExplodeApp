@@ -1,162 +1,417 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>{{title}}</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-      background: #f9f9f9;
+const path = require('path');
+//const fastify = require('fastify')({ logger: true });
+const fastify = require('fastify')({ logger: true, trustProxy: true });
+
+const fastifyStatic = require('@fastify/static');
+const fastifyFormbody = require('@fastify/formbody');
+const fastifyView = require('@fastify/view');
+const fastifyCookie = require('@fastify/cookie');
+const fastifySession = require('@fastify/session');
+const handlebars = require('handlebars');
+const fetch = require('node-fetch');
+
+require('dotenv').config();
+
+
+const ONSHAPE_AUTH_URL = 'https://oauth.onshape.com/oauth/authorize';
+const ONSHAPE_TOKEN_URL = 'https://oauth.onshape.com/oauth/token';
+const ONSHAPE_API_BASE_URL = 'https://cad.onshape.com/api/v6';
+
+handlebars.registerHelper('json', function (context) {
+  return JSON.stringify(context, null, 2);
+});
+
+fastify.register(fastifyCookie);
+fastify.register(fastifySession, {
+  secret: process.env.SESSION_SECRET || 'a-very-secret-key',
+  cookie: {
+   // secure: true,
+    secure: process.env.NODE_ENV === 'production', // true for HTTPS only
+    httpOnly: true,
+    sameSite: 'lax',
+    },  //false 10.07.25
+  
+  saveUninitialized: false,
+
+});
+
+
+fastify.register(fastifyStatic, {
+  root: path.join(__dirname, 'public'),
+  prefix: '/public/',
+});
+
+/*
+// ✅ Add this after the last fastify.register
+fastify.addHook('onSend', async (request, reply, payload) => {
+  reply.header('Content-Security-Policy', 'frame-ancestors https://cad.onshape.com');
+  reply.header('X-Frame-Options', ''); // Optional: explicitly clears it
+  return payload;
+});
+*/
+
+fastify.addHook('onSend', async (request, reply, payload) => {
+  reply.header('Content-Security-Policy', [
+    "default-src 'self';",
+   // "script-src 'self' 'unsafe-inline';", 
+    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;",
+    "style-src 'self' 'unsafe-inline';",
+    "img-src 'self' data:;",
+    "connect-src 'self' https://cad.onshape.com;",
+   // "frame-ancestors https://*.onshape.com;"
+    "frame-ancestors 'self' https://cad.onshape.com https://*.onshape.com;",
+  ].join(' '));
+  
+ // reply.header('X-Frame-Options', 'ALLOW-FROM https://cad.onshape.com'); // Optional, legacy
+  return payload;
+});
+
+
+fastify.register(fastifyFormbody);
+
+fastify.register(fastifyView, {
+  engine: { handlebars },
+  root: path.join(__dirname, 'src/pages'),
+  layout: false,
+});
+
+async function ensureValidToken(request, reply, done) {
+  const session = request.session;
+  if (!session || !session.access_token || !session.expires_at) {
+    return reply.redirect('/oauthStart');
+  }
+
+
+
+
+  
+  const now = Date.now();
+  if (now > session.expires_at - 60000) {
+    try {
+      const res = await fetch(ONSHAPE_TOKEN_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization':
+            'Basic ' +
+            Buffer.from(`${process.env.ONSHAPE_CLIENT_ID}:${process.env.ONSHAPE_CLIENT_SECRET}`).toString('base64'),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: session.refresh_token,
+        }),
+      });
+
+      if (!res.ok) {
+        fastify.log.error('Failed to refresh token', await res.text());
+        return reply.redirect('/oauthStart');
+      }
+
+      const data = await res.json();
+      session.access_token = data.access_token;
+      session.refresh_token = data.refresh_token || session.refresh_token;
+      session.expires_at = Date.now() + data.expires_in * 1000;
+      await session.save();
+    } catch (err) {
+      fastify.log.error('Error refreshing token:', err);
+      return reply.redirect('/oauthStart');
     }
+  }
 
-    h1 {
-      font-size: 1.6em;
-      margin-bottom: 20px;
-    }
+  done();
+}
 
-    .container {
-      display: flex;
-      gap: 40px;
-      flex-wrap: wrap;
-    }
+function extractDocumentParams(query) {
+  return {
+    documentId: query.d || query.documentId,
+    workspaceId: query.w || query.workspaceId,
+    elementId: query.e || query.elementId,
+  };
+}
 
-    .notes-section, .canvas-section {
-      flex: 1;
-      min-width: 300px;
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
 
-    textarea {
-      width: 100%;
-      height: 300px;
-      font-size: 1em;
-      font-family: monospace;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
+/*
+fastify.get('/', async (request, reply) => {
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
 
-    canvas {
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      background: #fff;
-    }
+  if (!request.session.access_token) {
+    return reply.view('index.hbs', {
+      title: 'Onshape Exploded View App',
+      message: 'Please authorize the app first.',
+      oauthUrl: '/oauthStart',
+    });
+  }
+  */
 
-    .tools {
-      margin-top: 10px;
-      display: flex;
-      gap: 10px;
-    }
+fastify.get('/', async (request, reply) => {
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+  const accessToken = request.session.access_token || request.query.accessToken;
 
-    button {
-      font-size: 1em;
-      padding: 6px 12px;
-      cursor: pointer;
-    }
+  if (!request.session.access_token && request.query.accessToken) {
+  request.session.access_token = request.query.accessToken;
+  await request.session.save();  // add this
+  
+    fastify.log.info('Saved session:', {
+  access_token: request.session.access_token
+});
+    
+}
+ 
+  if (!accessToken) {
+    return reply.view('index.hbs', {
+      title: 'Notes',
+      message: 'Please authorize the app first.',
+      oauthUrl: '/oauthStart',
+    });
+  }
 
-    /* Optional: Style commented out exploded view form */
-    /*
-    #explodeForm {
-      margin-top: 40px;
-    }
-    */
-  </style>
-</head>
-<body>
-  <h1>{{title}}</h1>
+  return reply.view('assembly_view.hbs', {
+    title: 'Exploded View',
+    documentId,
+    workspaceId,
+    elementId,
+    accessToken: request.session.access_token,
+  });
+});
 
-  <div class="container">
-    <!-- ✍️ Notes Section -->
-    <div class="notes-section">
-      <h2>Engineering Notes</h2>
-      <textarea id="notes" placeholder="Type your notes here..."></textarea>
-      <p style="font-size: 0.9em; color: gray;">Autosaves to your browser</p>
-    </div>
+fastify.get('/api/assemblydata', { preHandler: ensureValidToken }, async (request, reply) => {
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
 
-    <!-- 🖊 Drawing Pad -->
-    <div class="canvas-section">
-      <h2>Sketch Pad</h2>
-      <canvas id="drawingCanvas" width="400" height="300"></canvas>
-      <div class="tools">
-        <button id="clearBtn">Clear</button>
-        <button id="downloadBtn">Download</button>
-      </div>
-    </div>
-  </div>
+  if (!documentId || !workspaceId || !elementId) {
+    return reply.status(400).send('Missing document context parameters.');
+  }
 
-  <!-- 🔧 Exploded View App (commented out) -->
-  <!--
-  <form id="explodeForm">
-    <label for="explodeLevel">Explode Level (0-100):</label>
-    <input type="range" id="explodeLevel" name="explodeLevel" min="0" max="100" value="0" />
-    <span id="explodeValue">0</span>
-    <br />
-    <button type="submit">Explode Assembly</button>
-  </form>
-  -->
+  const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/assemblydefinition`;
+  
 
-  <script>
-    // ✍️ Notes autosave to localStorage
-    const notes = document.getElementById('notes');
-    notes.value = localStorage.getItem('engineeringNotes') || '';
-    notes.addEventListener('input', () => {
-      localStorage.setItem('engineeringNotes', notes.value);
+
+  
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${request.session.access_token}`,
+        Accept: 'application/json',
+      },
     });
 
-    // 🖊 Basic Canvas Drawing
-    const canvas = document.getElementById('drawingCanvas');
-    const ctx = canvas.getContext('2d');
-    let drawing = false;
-
-    canvas.addEventListener('mousedown', () => drawing = true);
-    canvas.addEventListener('mouseup', () => drawing = false);
-    canvas.addEventListener('mouseout', () => drawing = false);
-    canvas.addEventListener('mousemove', draw);
-
-    function draw(e) {
-      if (!drawing) return;
-      const rect = canvas.getBoundingClientRect();
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#000';
-      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    if (!res.ok) {
+      const errorText = await res.text();
+      fastify.log.error(`Onshape API error: ${res.status} ${errorText}`);
+      return reply.status(res.status).send(`Error: ${errorText}`);
     }
 
-    // Clear and download buttons
-    document.getElementById('clearBtn').addEventListener('click', () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.beginPath();
+    const data = await res.json();
+    return reply.send(data);
+  } catch (err) {
+    fastify.log.error('Error in /api/assemblydata:', err);
+    return reply.status(500).send('Internal Server Error.');
+  }
+});
+
+fastify.get('/api/gltf-model', { preHandler: ensureValidToken }, async (request, reply) => {
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
+
+  if (!documentId || !workspaceId || !elementId) {
+    return reply.status(400).send('Missing document context parameters for GLTF model.');
+  }
+
+  const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/gltf?outputFacetSettings=true&mode=flat`;
+  
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${request.session.access_token}`,
+        Accept: 'model/gltf+json',
+      },
     });
 
-    document.getElementById('downloadBtn').addEventListener('click', () => {
-      const link = document.createElement('a');
-      link.download = 'sketch.png';
-      link.href = canvas.toDataURL();
-      link.click();
+    if (!res.ok) {
+      const errorText = await res.text();
+      fastify.log.error(`GLTF fetch failed: ${res.status} ${errorText}`);
+      return reply.status(res.status).send(`Error fetching GLTF: ${errorText}`);
+    }
+
+    reply.header('Content-Type', 'model/gltf+json');
+    return reply.send(res.body);
+  } catch (err) {
+    fastify.log.error('Error in /api/gltf-model:', err);
+    return reply.status(500).send('Internal Server Error fetching GLTF model.');
+  }
+});
+
+// 🔧 New: Exploded view config
+fastify.get('/api/exploded-config', { preHandler: ensureValidToken }, async (request, reply) => {
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
+
+  if (!documentId || !workspaceId || !elementId) {
+    return reply.status(400).send('Missing document context parameters for exploded config.');
+  }
+
+  const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/explodedviews`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${request.session.access_token}`,
+        Accept: 'application/json',
+      },
     });
 
-    // 🛠️ Old explode form (still commented)
-    /*
-    const explodeSlider = document.getElementById('explodeLevel');
-    const explodeValue = document.getElementById('explodeValue');
-    explodeSlider.addEventListener('input', () => {
-      explodeValue.textContent = explodeSlider.value;
+    if (!res.ok) {
+      const errorText = await res.text();
+      fastify.log.error(`Exploded config error: ${res.status} ${errorText}`);
+      return reply.status(res.status).send(`Error: ${errorText}`);
+    }
+
+    const data = await res.json();
+    return reply.send(data);
+  } catch (err) {
+    fastify.log.error('Error in /api/exploded-config:', err);
+    return reply.status(500).send('Internal Server Error fetching exploded config.');
+  }
+});
+
+// 🔧 New: Mates
+fastify.get('/api/mates', { preHandler: ensureValidToken }, async (request, reply) => {
+  const { documentId, workspaceId, elementId } = extractDocumentParams(request.query);
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
+
+  if (!documentId || !workspaceId || !elementId) {
+    return reply.status(400).send('Missing document context parameters for mates.');
+  }
+
+  const url = `${ONSHAPE_API_BASE_URL}/assemblies/d/${documentId}/w/${workspaceId}/e/${elementId}/mates`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${request.session.access_token}`,
+        Accept: 'application/json',
+      },
     });
 
-    const form = document.getElementById('explodeForm');
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const level = explodeSlider.value;
-      alert(`You would send explode command with level: ${level} here.`);
+    if (!res.ok) {
+      const errorText = await res.text();
+      fastify.log.error(`Mate fetch error: ${res.status} ${errorText}`);
+      return reply.status(res.status).send(`Error: ${errorText}`);
+    }
+
+    const data = await res.json();
+    return reply.send(data);
+  } catch (err) {
+    fastify.log.error('Error in /api/mates:', err);
+    return reply.status(500).send('Internal Server Error fetching mates.');
+  }
+});
+
+fastify.get('/oauthStart', async (request, reply) => {
+  const clientId = process.env.ONSHAPE_CLIENT_ID;
+  const redirectUri = process.env.ONSHAPE_REDIRECT_URI;
+  const scope = 'OAuth2ReadPII OAuth2Read OAuth2Write';
+  const state = 'state123';
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
+
+  if (!clientId || !redirectUri) {
+    return reply.status(500).send('Missing ONSHAPE_CLIENT_ID or ONSHAPE_REDIRECT_URI.');
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: 'code',
+    redirect_uri: redirectUri,
+    scope,
+    state,
+  });
+
+  return reply.redirect(`${ONSHAPE_AUTH_URL}?${params.toString()}`);
+});
+
+fastify.get('/oauthRedirect', async (request, reply) => {
+  const { code } = request.query;
+  fastify.log.info(`Using access token: ${request.session.access_token}`);
+
+  if (!code) return reply.status(400).send('Missing authorization code.');
+
+
+  try {
+    const res = await fetch(ONSHAPE_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${process.env.ONSHAPE_CLIENT_ID}:${process.env.ONSHAPE_CLIENT_SECRET}`).toString('base64'),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: process.env.ONSHAPE_REDIRECT_URI,
+      }),
     });
-    */
-  </script>
-</body>
-</html>
+
+    if (!res.ok) {
+      const data = await res.json();
+      fastify.log.error('Token exchange failed:', res.status, data);
+      return reply.status(res.status).send(`Token exchange failed: ${data.error_description || JSON.stringify(data)}`);
+    }
+
+    const data = await res.json();
+
+    request.session.access_token = data.access_token;
+    request.session.refresh_token = data.refresh_token;
+    request.session.expires_at = Date.now() + data.expires_in * 1000;
+    await request.session.save();
+
+fastify.log.info('Saved session:', {
+  access_token: request.session.access_token
+});
+
+
+    return reply.redirect('/');
+  } catch (err) {
+    fastify.log.error('OAuth redirect error:', err);
+    return reply.status(500).send('Token exchange failed due to server error.');
+  }
+});
+
+
+
+
+fastify.get('/listDocuments', { preHandler: ensureValidToken }, async (request, reply) => {
+    fastify.log.info(`Using access token: ${request.session.access_token}`);
+
+  try {
+    const res = await fetch(`${ONSHAPE_API_BASE_URL}/documents`, {
+      headers: {
+        Authorization: `Bearer ${request.session.access_token}`,
+        Accept: 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      fastify.log.error('Error fetching documents:', error);
+      return reply.status(res.status).send(`Failed to fetch documents: ${error.message}`);
+    }
+
+    const documents = await res.json();
+    return reply.view('documents.hbs', { documents });
+  } catch (err) {
+    fastify.log.error('Error fetching documents:', err);
+    return reply.status(500).send('Server error while fetching documents.');
+  }
+});
+
+const start = async () => {
+  try {
+    await fastify.listen({ port: process.env.PORT || 3000, host: '0.0.0.0' });
+    fastify.log.info(`Server running on port ${fastify.server.address().port}`);
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+};
+
+start();
