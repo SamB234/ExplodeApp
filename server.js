@@ -79,7 +79,7 @@ fastify.register(fastifySession, {
 // 3. Static File Server (for assets like index.html, JS, CSS)
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, 'public'),
-  prefix: '/', // Serves files from /public directly under the root URL (e.g., /index.html)
+  prefix: '/public/', // Serves files from /public directly under the root URL (e.g., /index.html)
 });
 
 // 4. Form Body Parser (for parsing application/x-www-form-urlencoded and JSON)
