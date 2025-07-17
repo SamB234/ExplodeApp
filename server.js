@@ -12,10 +12,22 @@ const fetch = require('node-fetch');
 
 require('dotenv').config();
 
-const supabase = createClient(
-  'https://fktxolwcqbwovlbfxevx.supabase.co',
-  process.env.SUPABASE_KEY
-);
+
+//const supabase = createClient(
+  //'https://fktxolwcqbwovlbfxevx.supabase.co',
+  //process.env.SUPABASE_KEY
+//);
+
+
+const { createClient } = require('@supabase/supabase-js');  // <--- Add this!
+
+// ... your other setup and supabase client init
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+
 
 const ONSHAPE_AUTH_URL = 'https://oauth.onshape.com/oauth/authorize';
 const ONSHAPE_TOKEN_URL = 'https://oauth.onshape.com/oauth/token';
