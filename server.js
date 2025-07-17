@@ -19,8 +19,8 @@ if (!process.env.SUPABASE_URL) {
   console.error('FATAL ERROR: SUPABASE_URL environment variable is not set.');
   process.exit(1);
 }
-if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('FATAL ERROR: SUPABASE_SERVICE_ROLE_KEY environment variable is not set.');
+if (!process.env.SUPABASE_KEY) {
+  console.error('FATAL ERROR: SUPABASE_KEY environment variable is not set.');
   process.exit(1);
 }
 if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
@@ -46,7 +46,7 @@ const fastify = Fastify({ logger: true, trustProxy: true });
 // --- Supabase Client Initialization ---
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // Use the service role key on the server
+  process.env.SUPABASE_KEY // Use the service role key on the server
 );
 
 // --- Onshape API Constants ---
