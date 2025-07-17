@@ -12,6 +12,10 @@ const fetch = require('node-fetch');
 
 require('dotenv').config();
 
+const supabase = createClient(
+  'https://fktxolwcqbwovlbfxevx.supabase.co',
+  process.env.SUPABASE_KEY
+);
 
 const ONSHAPE_AUTH_URL = 'https://oauth.onshape.com/oauth/authorize';
 const ONSHAPE_TOKEN_URL = 'https://oauth.onshape.com/oauth/token';
@@ -403,6 +407,37 @@ fastify.get('/listDocuments', { preHandler: ensureValidToken }, async (request, 
     return reply.status(500).send('Server error while fetching documents.');
   }
 });
+
+
+
+
+
+fastify.post('/signup', async (request, reply) => {
+  const { email, password } = request.body;
+
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+  if (error) {
+    return reply.code(400).send({ error: error.message });
+  }
+
+  reply.send({ message: 'Check your email to confirm your account.' });
+});
+
+fastify.post('/login', async (request, reply) => {
+  const { email, password } = request.body;
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    return reply.code(400).send({ error: error.message });
+  }
+
+  reply.send({ user: data.user });
+});
+
+
+
 
 const start = async () => {
   try {
