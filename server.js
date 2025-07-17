@@ -98,6 +98,18 @@ async function ensureValidToken(request, reply, done) {
   }
 
 
+async function getUser(request, usersCollection) {
+  if (!request.session.userId) {
+    throw new Error('User not logged in');
+  }
+
+  const user = await usersCollection.findOne({ _id: new ObjectId(request.session.userId) });
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  return user;
+}
 
 
   
@@ -451,35 +463,35 @@ fastify.post('/login', async (request, reply) => {
 
 
 fastify.get('/notes', async (request, reply) => {
-  const { user } = await getUser(request); // your helper to get logged-in user
-  if (!user) return reply.status(401).send({ error: 'Unauthorized' });
-
-  const { data, error } = await supabase
-    .from('notes')
-    .select('content')
-    .eq('user_id', user.id)
-    .single();
-
-  if (error && error.code !== 'PGRST116') // not found
-    return reply.status(500).send({ error: error.message });
-
-  return reply.send({ content: data?.content || '' });
+  try {
+    const user = await getUser(request, usersCollection); // ✅ same here
+    reply.send({ notes: user.notes || '' });
+  } catch (err) {
+    request.log.error(err);
+    reply.status(500).send({ error: 'Failed to fetch note' });
+  }
 });
+
+
+
 
 fastify.post('/notes', async (request, reply) => {
-  const { user } = await getUser(request);
-  if (!user) return reply.status(401).send({ error: 'Unauthorized' });
+  try {
+    const user = await getUser(request, usersCollection); // ✅ now defined
+    const { content } = request.body;
 
-  const { content } = request.body;
+    await usersCollection.updateOne(
+      { _id: new ObjectId(user._id) },
+      { $set: { notes: content } }
+    );
 
-  const { error } = await supabase
-    .from('notes')
-    .upsert({ user_id: user.id, content });
-
-  if (error) return reply.status(500).send({ error: error.message });
-
-  return reply.send({ success: true });
+    reply.send({ success: true });
+  } catch (err) {
+    request.log.error(err);
+    reply.status(500).send({ error: 'Failed to save note' });
+  }
 });
+
 
 
 
