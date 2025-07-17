@@ -450,6 +450,40 @@ fastify.post('/login', async (request, reply) => {
 
 
 
+fastify.get('/notes', async (request, reply) => {
+  const { user } = await getUser(request); // your helper to get logged-in user
+  if (!user) return reply.status(401).send({ error: 'Unauthorized' });
+
+  const { data, error } = await supabase
+    .from('notes')
+    .select('content')
+    .eq('user_id', user.id)
+    .single();
+
+  if (error && error.code !== 'PGRST116') // not found
+    return reply.status(500).send({ error: error.message });
+
+  return reply.send({ content: data?.content || '' });
+});
+
+fastify.post('/notes', async (request, reply) => {
+  const { user } = await getUser(request);
+  if (!user) return reply.status(401).send({ error: 'Unauthorized' });
+
+  const { content } = request.body;
+
+  const { error } = await supabase
+    .from('notes')
+    .upsert({ user_id: user.id, content });
+
+  if (error) return reply.status(500).send({ error: error.message });
+
+  return reply.send({ success: true });
+});
+
+
+
+
 
 const start = async () => {
   try {
