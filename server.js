@@ -93,11 +93,11 @@ fastify.register(fastifyView, {
 
 
 // Define helper to get user by ID
-async function getUser(userId) {
-  return await prisma.user.findUnique({
-    where: { id: userId },
-  });
-}
+//async function getUser(userId) {
+ // return await prisma.user.findUnique({
+//    where: { id: userId },
+//  });
+//}
 
 async function ensureValidToken(request, reply, done) {
   const session = request.session;
