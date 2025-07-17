@@ -88,7 +88,7 @@ function toggleUI(loggedIn) {
 // Load notes for the logged-in user
 async function loadNotes() {
   try {
-    const res = await fetch('/user');
+    const res = await fetch('/currentUser'); //was user
     if (!res.ok) {
       toggleUI(false);
       return;
