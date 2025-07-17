@@ -98,10 +98,12 @@ async function ensureValidToken(request, reply, done) {
   }
 
 
-async function getUser(request, usersCollection) {
-  if (!request.session.userId) {
-    throw new Error('User not logged in');
-  }
+// Define helper to get user by ID
+async function getUser(userId) {
+  return await prisma.user.findUnique({
+    where: { id: userId },
+  });
+}
 
   const user = await usersCollection.findOne({ _id: new ObjectId(request.session.userId) });
   if (!user) {
