@@ -1,4 +1,3 @@
-// server.js
 const path = require('path');
 const fastify = require('fastify')({ logger: true, trustProxy: true });
 
@@ -10,24 +9,17 @@ const fastifySession = require('@fastify/session');
 const handlebars = require('handlebars');
 require('dotenv').config();
 
-// register helper
-handlebars.registerHelper('json', (ctx) => JSON.stringify(ctx, null, 2));
-
-// static assets
+// Setup view engine and static files
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, 'public'),
   prefix: '/public/',
 });
 
-// views
 fastify.register(fastifyView, {
   engine: { handlebars },
-  // <-- point at src/pages
-  root: path.join(__dirname, 'src', 'pages'),
-  layout: false,
+  root: path.join(__dirname, 'src/pages'), // <- Update this to match your actual folder
 });
 
-// parse form bodies, cookies & sessions
 fastify.register(fastifyFormbody);
 fastify.register(fastifyCookie);
 fastify.register(fastifySession, {
@@ -40,21 +32,20 @@ fastify.register(fastifySession, {
   saveUninitialized: false,
 });
 
-// simple home route
+// Routes
 fastify.get('/', async (req, reply) => {
-  return reply.view('index.hbs', {
-    title: 'Engineering Notes'
-  });
+  return reply.view('index.hbs', { title: 'Engineering Notes' });
 });
 
-// 404 fallback (optional)
-fastify.setNotFoundHandler((req, reply) => {
-  reply.code(404).send('Page not found');
-});
+// Start server
+const start = async () => {
+  try {
+    await fastify.listen({ port: process.env.PORT || 3000, host: '0.0.0.0' });
+    fastify.log.info(`Server running on port ${fastify.server.address().port}`);
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+};
 
-// start
-const PORT = process.env.PORT || 3000;
-fastify.listen({ port: PORT }, (err) => {
-  if (err) throw err;
-  fastify.log.info(`Server listening on http://localhost:${PORT}`);
-});
+start();
