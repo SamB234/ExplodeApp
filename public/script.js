@@ -1,5 +1,7 @@
 // public/script.js
-import { supabase } from '/supabaseClient.js';
+//import { supabase } from '/supabaseClient.js';
+import { supabase } from '/public/supabaseClient.js';
+
 
 const email = document.getElementById('email');
 const password = document.getElementById('password');
