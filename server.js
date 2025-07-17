@@ -1,11 +1,11 @@
-import Fastify from 'fastify';
-import path from 'path';
-import fastifyStatic from '@fastify/static';
-import view from '@fastify/view';
-import handlebars from 'handlebars';
+// server.js (CommonJS version)
+const path = require('path');
+const Fastify = require('fastify');
+const fastifyStatic = require('@fastify/static');
+const view = require('@fastify/view');
+const handlebars = require('handlebars');
 
 const __dirname = path.resolve();
-
 const fastify = Fastify({ logger: true });
 
 fastify.register(fastifyStatic, {
