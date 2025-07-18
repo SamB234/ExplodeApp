@@ -290,13 +290,14 @@ fastify.get('/documents', async (request, reply) => {
     try {
         const { data: allNotes, error: findError } = await supabase
             .from('notes')
-            // IMPORTANT: Select 'title', 'content', and 'updated_at' for display
+            // IMPORTANT: Select 'id', 'title', 'content', 'updated_at', and 'is_active'
             .select('id, title, content, updated_at, is_active')
             .eq('user_id', userId)
             .order('updated_at', { ascending: false }); // Order by most recently updated
 
         if (findError) {
-            fastify.log.error('Error retrieving all notes for documents page:', findError);
+            // Log the actual Supabase error for better debugging
+            fastify.log.error('Error retrieving all notes for documents page:', findError.message);
             return reply.status(500).send({ error: 'Failed to retrieve notes list.' });
         }
 
@@ -306,10 +307,10 @@ fastify.get('/documents', async (request, reply) => {
         const notesForDisplay = allNotes.map(note => ({
             id: note.id,
             // Use 'title' from DB, or a default if empty/null
-            title: note.title && note.title.trim() !== '' ? note.title : `Untitled Note ${note.id.substring(0, 8)}`,
+            title: (note.title && note.title.trim() !== '') ? note.title : `Untitled Note ${note.id.substring(0, 8)}`,
             // Create a preview from 'content', truncate if too long
             preview: note.content ? note.content.substring(0, 100) + (note.content.length > 100 ? '...' : '') : '(Empty Note)',
-            // Format updated_at date nicely
+            // Format updated_at date nicely; handle cases where updated_at might be null/empty
             updatedAt: note.updated_at ? new Date(note.updated_at).toLocaleString() : 'Never updated',
             isActive: note.is_active // Pass active status to the template
         }));
@@ -326,6 +327,7 @@ fastify.get('/documents', async (request, reply) => {
     }
 });
 
+---
 
 // --- DELETE /notes Route ---
 // Handles deletion of one or more notes based on provided IDs.
@@ -350,7 +352,7 @@ fastify.delete('/notes', async (request, reply) => {
             .eq('user_id', userId); // And belong to the current user
 
         if (fetchError) {
-            fastify.log.error('Error verifying note ownership for deletion:', fetchError);
+            fastify.log.error('Error verifying note ownership for deletion:', fetchError.message);
             return reply.status(500).send({ error: 'Failed to verify note ownership.' });
         }
 
@@ -368,22 +370,20 @@ fastify.delete('/notes', async (request, reply) => {
              return reply.status(400).send({ error: 'No valid notes to delete or all selected notes are unowned.' });
         }
 
-        // Before deleting, check if the currently active note is among those to be deleted.
-        // If it is, we need to set the activeNoteId in the session to null or to a new default.
-        // This prevents the main page from trying to load a deleted active note.
+        // Before deleting, check if the currently active note was among those to be deleted.
+        // If it is, clear the activeNoteId in the session and deactivate any active notes in DB.
         if (request.session.activeNoteId && notesToDelete.includes(request.session.activeNoteId)) {
             request.session.activeNoteId = null; // Clear active note in session
             fastify.log.info(`Active note ${request.session.activeNoteId} was among deleted notes. Clearing session activeNoteId.`);
-            // You might want to update DB to set all is_active to false for the user,
-            // or find a new active note. For now, clearing the session is enough;
-            // a subsequent GET /notes on the main page will handle finding a new active/empty state.
+            
+            // Explicitly deactivate any notes that might still be marked as active for this user
             const { error: deactivateError } = await supabase
                 .from('notes')
                 .update({ is_active: false })
                 .eq('user_id', userId)
                 .eq('is_active', true);
             if (deactivateError) {
-                fastify.log.warn('Could not deactivate active note during deletion cleanup:', deactivateError);
+                fastify.log.warn('Could not deactivate active notes during deletion cleanup:', deactivateError.message);
             }
         }
 
@@ -396,7 +396,7 @@ fastify.delete('/notes', async (request, reply) => {
             .eq('user_id', userId); // Extra security filter on delete
 
         if (deleteError) {
-            fastify.log.error('Error deleting notes from Supabase:', deleteError);
+            fastify.log.error('Error deleting notes from Supabase:', deleteError.message);
             return reply.status(500).send({ error: 'Failed to delete notes.' });
         }
 
@@ -409,6 +409,7 @@ fastify.delete('/notes', async (request, reply) => {
     }
 });
 
+---
 
 // --- POST /notes Route (UPDATE existing note content and title) ---
 // This route is primarily for saving changes to an *existing* note.
@@ -433,7 +434,6 @@ fastify.post('/notes', async (request, reply) => {
 
     try {
         // Determine the note ID to update. Prioritize session.activeNoteId.
-        // If no active note in session, it's an edge case, but we should handle.
         let noteIdToUpdate = request.session.activeNoteId;
 
         // If no active note is explicitly set in session, try to find the one marked as active in DB
@@ -446,7 +446,7 @@ fastify.post('/notes', async (request, reply) => {
                 .limit(1);
 
             if (findActiveError) {
-                fastify.log.error('Error finding active note from DB for update:', findActiveError);
+                fastify.log.error('Error finding active note from DB for update:', findActiveError.message);
                 return reply.status(500).send({ error: 'Failed to find active note for update.' });
             }
 
@@ -465,18 +465,18 @@ fastify.post('/notes', async (request, reply) => {
                 .eq('user_id', userId); // Security: Ensure the user owns this note
 
             if (updateError) {
-                fastify.log.error(`Error updating note ID ${noteIdToUpdate}:`, updateError);
+                fastify.log.error(`Error updating note ID ${noteIdToUpdate}:`, updateError.message);
                 return reply.status(500).send({ error: 'Failed to update note.' });
             }
             fastify.log.info(`Updated note (ID: ${noteIdToUpdate}) for user ${userId}.`);
             return reply.status(200).send({ message: 'Note updated successfully.', noteId: noteIdToUpdate });
 
         } else {
-            // This case should ideally be handled by POST /notes/new first,
-            // but as a fallback, if no active note exists, create a new one and make it active.
-            fastify.log.info(`No active note found for user ${userId} to update. Creating a new one.`);
+            // Fallback: If no active note exists at all for the user, create a new one.
+            // This case should ideally be rare if /notes/new or /GET notes (fallback) is used correctly.
+            fastify.log.info(`No active note found for user ${userId} to update. Creating a new one as fallback.`);
 
-            // Ensure no other notes are active
+            // Ensure no other notes are active for this user before inserting a new active one
             await supabase.from('notes').update({ is_active: false }).eq('user_id', userId).eq('is_active', true);
 
             const { data: newNote, error: insertError } = await supabase
@@ -486,12 +486,12 @@ fastify.post('/notes', async (request, reply) => {
                 .single();
 
             if (insertError) {
-                fastify.log.error('Error inserting new note (fallback from update):', insertError);
+                fastify.log.error('Error inserting new note (fallback from update):', insertError.message);
                 return reply.status(500).send({ error: 'Failed to save new note.' });
             }
             request.session.activeNoteId = newNote.id; // Set new note as active
             fastify.log.info(`Created new note (ID: ${newNote.id}) as active for user ${userId} (fallback from update).`);
-            return reply.status(201).send({ message: 'New note created successfully.', noteId: newNote.id });
+            return reply.status(201).send({ message: 'New note created successfully.', noteId: newNote.id, note: newNote });
         }
 
     } catch (e) {
@@ -500,6 +500,7 @@ fastify.post('/notes', async (request, reply) => {
     }
 });
 
+---
 
 // --- GET /notes Route (LOAD active or specific note) ---
 // This route is for loading a single note for editing.
@@ -513,74 +514,81 @@ fastify.get('/notes', async (request, reply) => {
     const noteIdFromQuery = request.query.id; // Note ID from URL query parameter
 
     try {
-        let targetNoteId = noteIdFromQuery;
+        let targetNoteData = null;
 
-        if (targetNoteId) {
+        if (noteIdFromQuery) {
             // Case 1: A specific note ID is provided in the query string
-            fastify.log.info(`Attempting to load specific note ID from query: ${targetNoteId} for user ${userId}`);
+            fastify.log.info(`Attempting to load specific note ID from query: ${noteIdFromQuery} for user ${userId}`);
 
             // Verify ownership and existence of the requested note
             const { data: requestedNote, error: checkError } = await supabase
                 .from('notes')
                 .select('*') // Select all columns to return the full note
-                .eq('id', targetNoteId)
+                .eq('id', noteIdFromQuery)
                 .eq('user_id', userId)
-                .single(); // Expecting one or none
+                .single();
 
             if (checkError || !requestedNote) {
-                fastify.log.warn(`Note ${targetNoteId} not found or not owned by user ${userId}:`, checkError);
-                // If not found or not owned, fallback to default behavior (active note or empty)
-                targetNoteId = null; // Clear targetNoteId to proceed to active/empty logic
+                fastify.log.warn(`Note ${noteIdFromQuery} not found or not owned by user ${userId}:`, checkError ? checkError.message : 'Not Found');
+                // If not found or not owned, fallback to default behavior (active note or create new)
+                // Do NOT return here. Continue to find active note or create new.
             } else {
-                // Requested note exists and is owned by the user, now set it as active
+                targetNoteData = requestedNote;
                 // Deactivate any currently active notes for this user
                 await supabase
                     .from('notes')
                     .update({ is_active: false })
                     .eq('user_id', userId)
-                    .eq('is_active', true);
+                    .eq('is_active', true); // Only deactivate notes that are currently active
 
                 // Set the requested note as the new active note
                 const { error: activateError } = await supabase
                     .from('notes')
                     .update({ is_active: true })
-                    .eq('id', targetNoteId)
+                    .eq('id', targetNoteData.id)
                     .eq('user_id', userId); // Security check
 
                 if (activateError) {
-                    fastify.log.error(`Error activating note ${targetNoteId}:`, activateError);
-                    // Continue with the note data, but log the activation issue
+                    fastify.log.error(`Error activating note ${targetNoteData.id}:`, activateError.message);
                 } else {
-                     fastify.log.info(`Activated note ${targetNoteId} for user ${userId}.`);
+                     fastify.log.info(`Activated note ${targetNoteData.id} for user ${userId}.`);
                 }
-                request.session.activeNoteId = targetNoteId; // Update session
-                return reply.status(200).send(requestedNote); // Return the full data of the activated note
+                request.session.activeNoteId = targetNoteData.id; // Update session
+                return reply.status(200).send(targetNoteData); // Return the full data of the activated note
             }
         }
 
         // Case 2: No specific note ID in query, or provided ID was invalid/unowned.
         // Try to load the note currently marked as active for the user.
-        fastify.log.info(`No specific valid note ID in query. Fetching current active note for user ${userId}.`);
-        const { data: activeNotes, error: findActiveError } = await supabase
-            .from('notes')
-            .select('*') // Select all columns for the active note
-            .eq('user_id', userId)
-            .eq('is_active', true)
-            .limit(1); // Only one active note expected
+        if (!targetNoteData) { // Only proceed if a note hasn't been found/activated yet
+            fastify.log.info(`Attempting to fetch current active note for user ${userId}.`);
+            const { data: activeNotes, error: findActiveError } = await supabase
+                .from('notes')
+                .select('*') // Select all columns for the active note
+                .eq('user_id', userId)
+                .eq('is_active', true)
+                .limit(1); // Only one active note expected
 
-        if (findActiveError) {
-            fastify.log.error('Error finding active note for user:', findActiveError);
-            return reply.status(500).send({ error: 'Failed to retrieve active note.' });
+            if (findActiveError) {
+                fastify.log.error('Error finding active note for user:', findActiveError.message);
+                return reply.status(500).send({ error: 'Failed to retrieve active note.' });
+            }
+
+            if (activeNotes && activeNotes.length > 0) {
+                targetNoteData = activeNotes[0];
+                request.session.activeNoteId = targetNoteData.id; // Ensure session is updated
+                fastify.log.info(`Active note (ID: ${targetNoteData.id}) found for user ${userId}.`);
+                return reply.status(200).send(targetNoteData);
+            }
         }
 
-        if (activeNotes && activeNotes.length > 0) {
-            const activeNote = activeNotes[0];
-            request.session.activeNoteId = activeNote.id; // Ensure session is updated
-            fastify.log.info(`Active note (ID: ${activeNote.id}) found for user ${userId}.`);
-            return reply.status(200).send(activeNote);
-        } else {
-            // Case 3: No active note found at all. Create a brand new, empty one and set it as active.
+        // Case 3: No active note found at all (neither specific nor existing active).
+        // Create a brand new, empty one and set it as active.
+        if (!targetNoteData) {
             fastify.log.info(`No active note found for user ${userId}. Creating a new default note.`);
+
+            // Ensure no other notes are active before inserting a new one
+            await supabase.from('notes').update({ is_active: false }).eq('user_id', userId).eq('is_active', true);
 
             const { data: newNote, error: insertError } = await supabase
                 .from('notes')
@@ -589,7 +597,7 @@ fastify.get('/notes', async (request, reply) => {
                 .single();
 
             if (insertError) {
-                fastify.log.error('Error creating default new note:', insertError);
+                fastify.log.error('Error creating default new note:', insertError.message);
                 return reply.status(500).send({ error: 'Failed to create default new note.' });
             }
 
@@ -604,6 +612,7 @@ fastify.get('/notes', async (request, reply) => {
     }
 });
 
+---
 
 // --- POST /notes/new Route (CREATE a brand new empty note and make it active) ---
 // This route specifically handles the request to create a *new, empty* note.
@@ -613,8 +622,6 @@ fastify.post('/notes/new', async (request, reply) => {
     }
 
     const userId = request.session.user.id;
-    // For a new note request, we explicitly ignore any content in the body
-    // because we want to create a fresh, empty note.
     fastify.log.info(`Received request to create new note for user ${userId}.`);
 
     try {
@@ -626,7 +633,7 @@ fastify.post('/notes/new', async (request, reply) => {
             .eq('is_active', true);
 
         if (deactivateError) {
-            fastify.log.warn('Could not deactivate old active note (might not exist):', deactivateError);
+            fastify.log.warn('Could not deactivate old active note (might not exist):', deactivateError.message);
         } else {
             fastify.log.info(`Deactivated previous active note for user ${userId}.`);
         }
@@ -639,7 +646,7 @@ fastify.post('/notes/new', async (request, reply) => {
             .single(); // Expecting one newly inserted row
 
         if (insertError) {
-            fastify.log.error('Error inserting new active note:', insertError);
+            fastify.log.error('Error inserting new active note:', insertError.message); // Log the actual error message
             return reply.status(500).send({ error: 'Failed to create new note.' });
         }
 
@@ -647,17 +654,15 @@ fastify.post('/notes/new', async (request, reply) => {
         request.session.activeNoteId = newNoteId; // Set new note as active in session
         fastify.log.info(`Created new active note (ID: ${newNoteId}) for user ${userId}.`);
         
-        // Redirect to the main page with the ID of the new note,
-        // or just to the main page which will load the active note (which is now the new one).
-        // Redirecting directly to the main page is simpler as it will fetch the new active note.
-        return reply.redirect('/');
+        // Return the new note data so the frontend can update its state if needed
+        // Or redirect to the main page which will load this new active note.
+        return reply.status(201).send({ message: 'New note created successfully.', note: newNote });
 
     } catch (e) {
         fastify.log.error('Exception in POST /notes/new:', e);
         return reply.status(500).send({ error: 'Internal server error.' });
     }
 });
-
 
 
 
