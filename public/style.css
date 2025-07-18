@@ -330,3 +330,181 @@ header nav a:hover {
         font-size: 2em;
     }
 }
+
+/* --- New Styles for Design Guidelines Widget --- */
+
+.widget-toggle-container {
+    text-align: center;
+    margin: 20px auto; /* Center the button */
+    max-width: 600px; /* Align with other sections */
+}
+
+.widget-toggle-btn {
+    width: auto; /* Allow button to size to content */
+    padding: 10px 20px;
+    background-color: #28a745; /* Green color for toggle */
+    color: white;
+    border-radius: 8px;
+    margin: 0; /* Override previous button margins */
+}
+
+.widget-toggle-btn:hover {
+    background-color: #218838;
+}
+
+.guidelines-widget {
+    max-width: 600px; /* Align with .notes section */
+    margin: 20px auto;
+    background: white;
+    padding: 25px; /* Slightly more padding for the widget */
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.15); /* Slightly stronger shadow */
+    border: 1px solid #e0e0e0; /* Subtle border */
+}
+
+.guidelines-widget h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #0056b3; /* A bit darker blue */
+    font-size: 1.8em;
+}
+
+.guidelines-controls {
+    display: grid;
+    grid-template-columns: auto 1fr auto; /* Label, input/select, unit/button */
+    gap: 15px 10px; /* Row gap, column gap */
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 15px;
+    background-color: #f8fafd; /* Light blue background */
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.guidelines-controls label {
+    font-weight: bold;
+    color: #555;
+    white-space: nowrap; /* Prevent wrapping */
+}
+
+.guidelines-controls input[type="number"],
+.guidelines-controls select {
+    padding: 10px 12px;
+    font-size: 1em;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    width: 100%; /* Take full width of its grid column */
+    box-sizing: border-box;
+    appearance: none; /* Remove default select arrow */
+    background-color: white;
+}
+
+/* Custom arrow for select (optional, but makes it consistent) */
+.guidelines-controls select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23495057'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 20px;
+    padding-right: 30px; /* Make space for the custom arrow */
+}
+
+
+.guidelines-controls #calculateGuidelinesBtn {
+    grid-column: span 3; /* Make button span all columns */
+    margin-top: 10px;
+    background-color: #007bff;
+}
+
+.guidelines-controls #calculateGuidelinesBtn:hover {
+    background-color: #0056b3;
+}
+
+.guidelines-results {
+    background-color: #e9f7ef; /* Light green background for results */
+    border: 1px solid #d4edda;
+    border-radius: 8px;
+    padding: 20px;
+    min-height: 150px; /* Give it some initial height */
+    overflow-y: auto; /* Allow scrolling if many results */
+}
+
+.guidelines-results h3 {
+    color: #0069d9;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #b8daff;
+    padding-bottom: 5px;
+}
+
+.guideline-feature {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #e0e0e0;
+}
+
+.guideline-feature:last-child {
+    border-bottom: none; /* No border for the last feature */
+}
+
+.guideline-feature h4 {
+    color: #007bff;
+    margin-bottom: 8px;
+}
+
+.feature-description {
+    font-size: 0.9em;
+    color: #6c757d;
+    margin-bottom: 10px;
+    font-style: italic;
+}
+
+.guideline-feature ul {
+    list-style-type: disc;
+    padding-left: 25px;
+    margin: 0;
+}
+
+.guideline-feature ul li {
+    margin-bottom: 5px;
+    color: #495057;
+}
+
+.guideline-feature ul li em {
+    color: #888;
+    font-size: 0.9em;
+}
+
+.error-message {
+    color: #dc3545; /* Red for errors */
+    font-weight: bold;
+    text-align: center;
+}
+
+.widget-close-btn {
+    margin-top: 20px;
+    background-color: #6c757d; /* Grey for close button */
+    width: auto;
+    padding: 8px 15px;
+    float: right; /* Position to the right */
+}
+
+.widget-close-btn:hover {
+    background-color: #5a6268;
+}
+
+/* Adjust for smaller screens */
+@media (max-width: 600px) {
+    .guidelines-controls {
+        grid-template-columns: 1fr; /* Stack elements on smaller screens */
+        gap: 10px;
+    }
+    .guidelines-controls label {
+        text-align: left;
+    }
+    .guidelines-controls #calculateGuidelinesBtn {
+        grid-column: span 1; /* Adjust span for single column */
+    }
+    .widget-close-btn {
+        float: none; /* No float on small screens */
+        width: 100%;
+    }
+}
