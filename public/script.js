@@ -9,6 +9,9 @@ const passwordInput = document.getElementById('password');
 const loginBtn = document.getElementById('loginBtn');
 const signupBtn = document.getElementById('signupBtn');
 const logoutBtn = document.getElementById('logoutBtn');
+
+// New: Title Input Element
+const noteTitleInput = document.getElementById('noteTitle'); // The new note title input field
 const noteContentInput = document.getElementById('noteContent'); // The main note textarea
 
 const authSection = document.getElementById('authSection');
@@ -16,6 +19,7 @@ const notesSection = document.getElementById('notesSection');
 
 const createNewNoteBtn = document.getElementById('createNewNoteBtn');
 const viewAllNotesBtn = document.getElementById('viewAllNotesBtn');
+const saveNoteBtn = document.getElementById('saveNoteBtn'); // Get the new Save button
 
 // --- Global State ---
 let currentUser = null;
@@ -54,7 +58,7 @@ function toggleUI(loggedIn) {
 // --- API Interaction Functions ---
 
 /**
- * Loads the current note content into the textarea.
+ * Loads the current note content and title into the respective input fields.
  * It prioritizes a note ID from the URL query parameter.
  * If no ID is present, it asks the backend for the user's active note.
  */
@@ -74,45 +78,56 @@ async function loadCurrentNote() {
         const response = await fetch(url, { credentials: 'include' });
 
         if (!response.ok) {
-            // If the requested note isn't found or there's another error,
-            // clear the input and log the issue.
             const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
             console.error(`Failed to load note from ${url}: ${response.status} - ${errorData.message}`);
-            noteContentInput.value = '';
+            
+            // Clear inputs and set placeholders
+            noteTitleInput.value = 'Error Loading Note';
+            noteContentInput.value = 'Please try creating a new note or refresh.';
             currentNoteId = null; // No note loaded
+            
             // If it was a specific ID that failed, redirect to clean URL
             if (noteIdFromUrl) {
                 window.history.replaceState({}, document.title, '/');
                 alert(`Note with ID ${noteIdFromUrl} not found or inaccessible. Loading default note.`);
-                // Recursively call to load the actual active note after cleaning URL
-                await loadCurrentNote();
+                await loadCurrentNote(); // Recursively call to load the actual active note after cleaning URL
             }
             return;
         }
 
         const note = await response.json();
-        noteContentInput.value = note.content || '';
+        noteTitleInput.value = note.title || ''; // Populate title input
+        noteContentInput.value = note.content || ''; // Populate content textarea
         currentNoteId = note.id; // Store the ID of the note that was successfully loaded
-        console.log(`Note (ID: ${currentNoteId}) loaded successfully.`);
+        console.log(`Note (ID: ${currentNoteId}) loaded successfully. Title: "${note.title}"`);
     } catch (error) {
         console.error('Network error loading note:', error);
+        noteTitleInput.value = 'Error Loading Note';
         noteContentInput.value = 'Error loading note. Please check your connection.';
         currentNoteId = null;
     }
 }
 
 /**
- * Saves the content of the textarea to the current active note on the backend.
+ * Saves the content and title of the input fields to the current active note on the backend.
  */
 async function saveNote() {
-    if (!currentUser || !noteContentInput) {
-        console.log('Not logged in or note input not found, cannot save.');
+    if (!currentUser || !noteContentInput || !noteTitleInput) {
+        console.log('Not logged in or note inputs not found, cannot save.');
         return;
     }
 
-    // If currentNoteId is null (e.g., initial state before any note is loaded),
-    // then the POST /notes endpoint will create a new one and set it as active.
-    // If currentNoteId is set, the backend should implicitly update it since it's the active one.
+    const title = noteTitleInput.value;
+    const content = noteContentInput.value;
+
+    // Optional: Prevent saving if both title and content are empty
+    if (title.trim() === '' && content.trim() === '') {
+        console.log('Note is empty (title and content). Not saving.');
+        // Optionally alert the user here
+        // alert("Cannot save an empty note. Please add some content or a title.");
+        return;
+    }
+
     try {
         const response = await fetch('/notes', {
             method: 'POST',
@@ -120,16 +135,26 @@ async function saveNote() {
                 'Content-Type': 'application/json',
                 'credentials': 'include'
             },
-            body: JSON.stringify({ content: noteContentInput.value })
+            body: JSON.stringify({ content: content, title: title }) // Send both content AND title
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
             throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message}`);
         }
-        console.log('Note content saved successfully!');
+        
+        const result = await response.json();
+        console.log('Note saved successfully!', result);
+        // If a new note was created (first save for a new session/no active note), update currentNoteId
+        if (result.noteId && result.noteId !== currentNoteId) {
+            currentNoteId = result.noteId;
+            // Optionally update the URL to reflect the new note's ID if desired,
+            // but for a text editor that autosaves, keeping the URL clean might be preferred.
+            // window.history.replaceState({}, document.title, `/?id=${currentNoteId}`);
+        }
     } catch (error) {
         console.error('Error saving note:', error);
+        alert('Error saving note. Please try again.'); // User feedback for save failures
     }
 }
 
@@ -153,11 +178,19 @@ async function createNewNote() {
             throw new Error(`Failed to create new note: ${response.status} - ${errorData.message}`);
         }
 
-        console.log('New note created and set as active.');
-        // After creating a new note, clear the input and load the new active note (which is empty)
-        noteContentInput.value = '';
-        noteContentInput.focus();
-        await loadCurrentNote(); // This will fetch the newly active empty note.
+        const newNoteData = await response.json(); // Get the new note's data from the response
+        currentNoteId = newNoteData.note.id; // Set the new note as current
+
+        // Clear the note editor and set a default title
+        noteTitleInput.value = newNoteData.note.title || 'New Note';
+        noteContentInput.value = newNoteData.note.content || '';
+        noteTitleInput.focus(); // Focus on the title for immediate typing
+        console.log('New note created and set as active:', newNoteData.note.id);
+        alert('New note created!');
+
+        // Update the URL to reflect the new note's ID
+        window.history.replaceState({}, document.title, `/?id=${currentNoteId}`);
+
     } catch (error) {
         console.error('Error creating new note:', error);
         alert('Error creating new note. Please try again.');
@@ -179,8 +212,8 @@ async function handleLogin() {
             return;
         }
         currentUser = result.user;
-        await loadCurrentNote(); // Load the active/specified note after login
         toggleUI(true);
+        await loadCurrentNote(); // Load the active/specified note after login
     } catch (err) {
         console.error('Login request failed:', err);
         alert('Login request failed');
@@ -214,7 +247,8 @@ async function handleLogout() {
     } finally {
         currentUser = null;
         currentNoteId = null;
-        noteContentInput.value = ''; // Clear the current note input
+        noteTitleInput.value = ''; // Clear title input
+        noteContentInput.value = ''; // Clear content input
         toggleUI(false);
         // Clean the URL if logging out from a specific note page
         if (window.location.search.includes('id=')) {
@@ -246,18 +280,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     signupBtn?.addEventListener('click', handleSignup);
     logoutBtn?.addEventListener('click', handleLogout);
 
-    // Debounce the note saving on input
+    // Debounce the note saving on input for both title and content
     let saveTimer;
-    noteContentInput?.addEventListener('input', () => {
+    const saveHandler = () => {
         if (currentUser) { // Only attempt to save if logged in
             clearTimeout(saveTimer);
             saveTimer = setTimeout(saveNote, 1000); // Save 1 second after typing stops
         }
-    });
+    };
+
+    noteContentInput?.addEventListener('input', saveHandler);
+    noteTitleInput?.addEventListener('input', saveHandler); // Add event listener for title input
 
     createNewNoteBtn?.addEventListener('click', createNewNote);
     viewAllNotesBtn?.addEventListener('click', () => {
         // Redirect to the /documents page to view all notes
         window.location.href = '/documents';
     });
+    saveNoteBtn?.addEventListener('click', saveNote); // Attach event listener to the new save button
 });
