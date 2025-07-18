@@ -609,6 +609,55 @@ fastify.get('/listDocuments', { preHandler: ensureValidOnshapeToken }, async (re
 });
 
 
+
+
+// ... (your existing Fastify setup, require statements, and other routes) ...
+
+// Route to display all notes for the logged-in user
+fastify.get('/documents', async (request, reply) => {
+    // 1. Check if user is authenticated (essential for RLS and security)
+    if (!request.session.user) {
+        // If not logged in, redirect to the login page or send an unauthorized status
+        fastify.log.warn('Attempt to access /documents without active session.');
+        return reply.redirect('/'); // Redirect to home/login page
+        // Or: return reply.status(401).send('Unauthorized: Please log in to view your documents.');
+    }
+
+    const userId = request.session.user.id;
+    fastify.log.info(`Attempting to retrieve all notes for Supabase user_id: ${userId}`);
+
+    try {
+        // 2. Fetch all notes from Supabase for the current user
+        const { data: notes, error } = await supabase
+            .from('notes')
+            .select('*') // Select all columns
+            .eq('user_id', userId) // IMPORTANT: Filter by the logged-in user's ID
+            .order('created_at', { ascending: false }); // Order by creation date, newest first
+
+        if (error) {
+            fastify.log.error('Error retrieving notes for /documents:', error);
+            return reply.status(500).send('Error retrieving notes from the database.');
+        }
+
+        fastify.log.info(`Notes retrieved for Supabase user ${userId}. Count: ${notes ? notes.length : 0}`);
+
+        // 3. Render the documents.hbs template, passing the retrieved notes
+        return reply.view('documents.hbs', {
+            notes: notes || [], // Pass the array of notes (or an empty array if none)
+            userName: request.session.user.email // Pass user email for display on the page
+        });
+
+    } catch (e) {
+        fastify.log.error('Exception in /documents route:', e);
+        return reply.status(500).send('Internal server error when fetching documents.');
+    }
+});
+
+// ... (rest of your existing server.js code) ...
+
+
+
+
 // GET /currentUser - Get current Supabase user from session
 fastify.get('/currentUser', async (req, reply) => {
     if (req.session.user && req.session.user.id) {
