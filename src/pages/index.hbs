@@ -3,55 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <title>Engineering Notes</title>
-<link rel="stylesheet" href="/public/style.css">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-  	  background: #f9f9f9;
-    }
-
-    .auth, .notes {
-      max-width: 600px;
-      margin: auto;
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-  	  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-
-    textarea {
-      width: 100%;
-      height: 300px;
-      font-size: 1em;
-      padding: 10px;
-      margin-top: 10px;
-    }
-
-    input, button {
-      padding: 8px;
-      font-size: 1em;
-      margin: 4px 0;
-      width: 100%;
-    }
-
-    /* New style for button container */
-    .note-actions {
-        display: flex;
-        gap: 10px; /* Space between buttons */
-        margin-top: 10px;
-    }
-
-    .note-actions button {
-        flex: 1; /* Make buttons take equal width */
-        width: auto; /* Override general button width */
-    }
-
-    .hidden {
-      display: none;
-    }
-  </style>
-</head>
+    <link rel="stylesheet" href="/public/style.css">
+  </head>
 <body>
 
   <div class="auth" id="authSection">
@@ -67,15 +20,14 @@
     <textarea id="noteContent" placeholder="Start typing your notes..."></textarea>
     <p style="font-size: 0.9em; color: gray;">Saved automatically to your account</p>
 
-    <div class="note-actions">
-        <button id="createNewNoteBtn">Create New Note</button>
-        <button id="viewAllNotesBtn">View All Notes</button>
-    </div>
+    <div class="note-actions">
+        <button id="createNewNoteBtn">Create New Note</button>
+        <button id="viewAllNotesBtn">View All Notes</button>
+    </div>
 
     <button id="logoutBtn">Log Out</button>
   </div>
 
-
   <script type="module" src="/public/script.js"></script>
-    </body>
+      </body>
 </html>
