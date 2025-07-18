@@ -284,6 +284,9 @@ fastify.post('/notes', async (request, reply) => {
     const userId = request.session.user.id;
     const { content } = request.body;
 
+    fastify.log.info(`DEBUG POST /notes: User ${userId}, Content length: ${content ? content.length : 0}, Content snippet: "${content ? content.substring(0, 20) : 'null/undefined'}"`);
+
+
     if (content === undefined || content === null) {
         return reply.status(400).send({ error: 'Note content is required.' });
     }
