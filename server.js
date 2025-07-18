@@ -70,7 +70,7 @@ fastify.register(fastifySession, {
   cookie: {
     secure: process.env.NODE_ENV === 'production', // true for HTTPS only in production
     httpOnly: true, // Prevents client-side JS from accessing the session cookie
-    sameSite: 'lax', // Recommended for security against CSRF
+    sameSite: 'none', // Recommended for security against CSRF - was 'lax'
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days, adjust as needed
   },
   saveUninitialized: false, // Only create sessions for authenticated users
@@ -99,12 +99,13 @@ fastify.register(fastifyView, {
 fastify.addHook('onSend', async (request, reply, payload) => {
   reply.header('Content-Security-Policy', [
     "default-src 'self';",
-    // Ensure these sources are correct for your frontend scripts (e.g., Three.js, etc.)
-    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;",
-    "style-src 'self' 'unsafe-inline';",
+    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;", // Re-evaluate 'unsafe-inline' later if possible
+    "style-src 'self' 'unsafe-inline';", // Re-evaluate 'unsafe-inline' later if possible
     "img-src 'self' data:;",
-    "connect-src 'self' https://cad.onshape.com https://api.onshape.com;", // Added api.onshape.com just in case
-    "frame-ancestors 'self' https://cad.onshape.com https://*.onshape.com;", // Crucial for embedding in Onshape
+    // IMPORTANT: Add your Supabase project URL here for API calls
+    "connect-src 'self' https://cad.onshape.com https://api.onshape.com https://fktxolwcqbwovlbfxevx.supabase.co https://fktxolwcqbwovlbfxevx.functions.supabase.co;",
+    // This allows Onshape to embed your app. Your side of the CSP is okay here.
+    "frame-ancestors 'self' https://cad.onshape.com https://*.onshape.com;",
   ].join(' '));
   return payload;
 });
