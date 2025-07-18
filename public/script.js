@@ -19,7 +19,7 @@ const notesSection = document.getElementById('notesSection');
 
 const createNewNoteBtn = document.getElementById('createNewNoteBtn');
 const viewAllNotesBtn = document.getElementById('viewAllNotesBtn');
-const saveNoteBtn = document.getElementById('saveNoteBtn'); // Get the new Save button
+// Removed: const saveNoteBtn = document.getElementById('saveNoteBtn'); // Get the new Save button
 
 // --- Global State ---
 let currentUser = null;
@@ -297,5 +297,5 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Redirect to the /documents page to view all notes
         window.location.href = '/documents';
     });
-    saveNoteBtn?.addEventListener('click', saveNote); // Attach event listener to the new save button
+    // Removed: saveNoteBtn?.addEventListener('click', saveNote); // Removed event listener for the save button
 });
