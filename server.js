@@ -327,7 +327,7 @@ fastify.get('/documents', async (request, reply) => {
     }
 });
 
----
+
 
 // --- DELETE /notes Route ---
 // Handles deletion of one or more notes based on provided IDs.
@@ -409,7 +409,7 @@ fastify.delete('/notes', async (request, reply) => {
     }
 });
 
----
+
 
 // --- POST /notes Route (UPDATE existing note content and title) ---
 // This route is primarily for saving changes to an *existing* note.
@@ -500,7 +500,7 @@ fastify.post('/notes', async (request, reply) => {
     }
 });
 
----
+
 
 // --- GET /notes Route (LOAD active or specific note) ---
 // This route is for loading a single note for editing.
@@ -612,7 +612,7 @@ fastify.get('/notes', async (request, reply) => {
     }
 });
 
----
+
 
 // --- POST /notes/new Route (CREATE a brand new empty note and make it active) ---
 // This route specifically handles the request to create a *new, empty* note.
