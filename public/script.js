@@ -19,7 +19,17 @@ const notesSection = document.getElementById('notesSection');
 
 const createNewNoteBtn = document.getElementById('createNewNoteBtn');
 const viewAllNotesBtn = document.getElementById('viewAllNotesBtn');
-// Removed: const saveNoteBtn = document.getElementById('saveNoteBtn'); // Get the new Save button
+
+// --- New Widget DOM Elements ---
+const toggleGuidelinesWidgetBtn = document.getElementById('toggleGuidelinesWidgetBtn');
+const designGuidelinesWidget = document.getElementById('designGuidelinesWidget');
+const nominalWallThicknessInput = document.getElementById('nominalWallThickness');
+const thicknessUnitSelect = document.getElementById('thicknessUnit');
+const productionProcessSelect = document.getElementById('productionProcess');
+const calculateGuidelinesBtn = document.getElementById('calculateGuidelinesBtn');
+const guidelinesResults = document.getElementById('guidelinesResults');
+const closeGuidelinesWidgetBtn = document.getElementById('closeGuidelinesWidgetBtn');
+
 
 // --- Global State ---
 let currentUser = null;
@@ -38,22 +48,57 @@ function getQueryParam(name) {
 }
 
 /**
- * Toggles the visibility of authentication and notes sections.
+ * Toggles the visibility of authentication, notes sections, and the widget toggle button.
  * @param {boolean} loggedIn True if a user is logged in, false otherwise.
  */
 function toggleUI(loggedIn) {
-    if (authSection && notesSection) {
+    if (authSection && notesSection && toggleGuidelinesWidgetBtn) {
         if (loggedIn) {
             authSection.classList.add('hidden');
             notesSection.classList.remove('hidden');
+            toggleGuidelinesWidgetBtn.classList.remove('hidden'); // Show widget toggle button
         } else {
             authSection.classList.remove('hidden');
             notesSection.classList.add('hidden');
+            toggleGuidelinesWidgetBtn.classList.add('hidden'); // Hide widget toggle button
+            designGuidelinesWidget.classList.add('hidden'); // Ensure widget is hidden on logout
         }
     } else {
-        console.warn("UI sections not found. Check your HTML IDs (authSection, notesSection).");
+        console.warn("UI sections not found. Check your HTML IDs (authSection, notesSection, toggleGuidelinesWidgetBtn).");
     }
 }
+
+/**
+ * Converts a value between millimeters and inches.
+ * @param {number} value The value to convert.
+ * @param {string} fromUnit The unit of the input value ('mm' or 'inch').
+ * @param {string} toUnit The desired output unit ('mm' or 'inch').
+ * @returns {number} The converted value.
+ */
+function convertUnits(value, fromUnit, toUnit) {
+    const mmPerInch = 25.4;
+    if (fromUnit === toUnit) {
+        return value;
+    }
+    if (fromUnit === 'mm' && toUnit === 'inch') {
+        return value / mmPerInch;
+    }
+    if (fromUnit === 'inch' && toUnit === 'mm') {
+        return value * mmPerInch;
+    }
+    return value; // Should not happen
+}
+
+/**
+ * Rounds a number to a specified number of decimal places.
+ * @param {number} value The number to round.
+ * @param {number} decimals The number of decimal places.
+ * @returns {number} The rounded number.
+ */
+function roundTo(value, decimals) {
+    return Number(Math.round(value + 'e' + decimals) + 'e-' + decimals);
+}
+
 
 // --- API Interaction Functions ---
 
@@ -257,6 +302,177 @@ async function handleLogout() {
     }
 }
 
+// --- Manufacturing Guidelines Widget Logic ---
+
+const designGuidelines = {
+    "injection_molding": {
+        label: "Injection Molding",
+        features: {
+            "ribs": {
+                label: "Ribs",
+                description: "Features used for stiffness or alignment.",
+                guidelines: [
+                    { name: "Thickness (at base)", type: "ratio", min: 0.4, max: 0.6, unit: "T" },
+                    { name: "Max Height", type: "ratio", value: 3, unit: "T" },
+                    { name: "Min Spacing", type: "ratio", value: 2, unit: "T" },
+                    { name: "Draft Angle (per side)", type: "fixed", value: 0.5, unit: "degrees" },
+                    { name: "Base Fillet Radius", type: "ratio", min: 0.25, max: 0.5, unit: "T" }
+                ]
+            },
+            "bosses": {
+                label: "Bosses",
+                description: "Cylindrical features for fasteners or alignment.",
+                guidelines: [
+                    { name: "Wall Thickness", type: "ratio", min: 0.4, max: 0.6, unit: "T" },
+                    { name: "Base Fillet Radius", type: "ratio", min: 0.25, max: 0.5, unit: "T" },
+                    { name: "Max Height (relative to OD)", type: "ratio_of_od", value: 3, unit: "OD" }, // OD of the boss
+                    { name: "Draft Angle (OD, per side)", type: "fixed", value: 0.5, unit: "degrees" },
+                    { name: "Draft Angle (ID, per side)", type: "fixed", value: 0.25, unit: "degrees" }
+                ]
+            },
+            "corners": {
+                label: "Corners",
+                description: "Internal and external radii to reduce stress.",
+                guidelines: [
+                    { name: "Internal Corner Radius", type: "ratio", min: 0.5, max: 0.75, unit: "T" },
+                    { name: "External Corner Radius", type: "ratio", min: 1.0, max: 1.25, unit: "T" }
+                ]
+            },
+            "general_draft": {
+                label: "General Draft",
+                description: "Minimum angle for walls to aid part ejection.",
+                guidelines: [
+                    { name: "Recommended Draft Angle", type: "fixed", value: 1, unit: "degrees (per side)" }
+                ]
+            }
+        }
+    },
+    "rotational_molding": {
+        label: "Rotational Molding",
+        features: {
+            "ribs_and_projections": {
+                label: "Ribs & Projections",
+                description: "Thicker and wider than injection molding ribs.",
+                guidelines: [
+                    { name: "Thickness (at base)", type: "ratio", value: 1, unit: "T" }, // Often same as wall thickness
+                    { name: "Min Width (at base)", type: "ratio", value: 1, unit: "T" }, // For thicker features
+                    { name: "Max Height", type: "ratio", value: 4, unit: "T" },
+                    { name: "Min Radius at Base", type: "ratio", value: 0.5, unit: "T" },
+                    { name: "Draft Angle (per side)", type: "fixed", value: 1.0, unit: "degrees" }
+                ]
+            },
+            "corners": {
+                label: "Corners",
+                description: "Generous radii are critical for material flow and even wall thickness.",
+                guidelines: [
+                    { name: "Internal Corner Radius", type: "ratio", min: 0.5, max: 1.0, unit: "T" },
+                    { name: "External Corner Radius", type: "ratio", min: 1.5, max: 2.0, unit: "T" }
+                ]
+            },
+            "general_considerations": {
+                label: "General Considerations",
+                description: "Broad recommendations for roto-molded parts.",
+                guidelines: [
+                    { name: "Min Wall Thickness", type: "fixed", value: 3.0, unit: "mm (recommended minimum)" },
+                    { name: "Max Wall Thickness Variation", type: "fixed", value: 20, unit: "% (over entire part)" },
+                    { name: "Min Draft Angle (per side)", type: "fixed", value: 0.5, unit: "degrees" },
+                    { name: "Avoid Sharp Features", type: "text", value: "Generous radii and large transitions are key." }
+                ]
+            }
+        }
+    }
+    // Add more processes as needed
+};
+
+function calculateGuidelines() {
+    const nominalT = parseFloat(nominalWallThicknessInput.value);
+    const unit = thicknessUnitSelect.value;
+    const process = productionProcessSelect.value;
+    const guidelines = designGuidelines[process];
+
+    if (isNaN(nominalT) || nominalT <= 0) {
+        guidelinesResults.innerHTML = '<p class="error-message">Please enter a valid nominal wall thickness.</p>';
+        return;
+    }
+    if (!guidelines) {
+        guidelinesResults.innerHTML = '<p class="error-message">Guidelines for this production process are not available.</p>';
+        return;
+    }
+
+    let html = `<h3>Recommendations for ${guidelines.label} (Nominal T = ${nominalT} ${unit})</h3>`;
+
+    for (const featureKey in guidelines.features) {
+        const feature = guidelines.features[featureKey];
+        html += `<div class="guideline-feature"><h4>${feature.label}</h4><p class="feature-description">${feature.description}</p><ul>`;
+
+        feature.guidelines.forEach(guide => {
+            let calculatedValue = '';
+            let valueDisplay = '';
+
+            switch (guide.type) {
+                case "ratio":
+                    let minVal = roundTo(nominalT * guide.min, 2);
+                    let maxVal = roundTo(nominalT * guide.max, 2);
+                    if (unit === 'inch') { // Convert to inches for display if original unit was mm
+                         minVal = roundTo(convertUnits(minVal, 'mm', 'inch'), 3);
+                         maxVal = roundTo(convertUnits(maxVal, 'mm', 'inch'), 3);
+                    }
+                    calculatedValue = `${minVal} - ${maxVal}`;
+                    valueDisplay = `${guide.min}${guide.unit} - ${guide.max}${guide.unit}`;
+                    break;
+                case "value_or_ratio": // For cases like injection molding where boss wall thickness is 0.6T or fixed 1.5mm
+                    const calcValue = nominalT * guide.value_ratio;
+                    calculatedValue = roundTo(calcValue, 2);
+                    if (unit === 'inch') {
+                        calculatedValue = roundTo(convertUnits(calculatedValue, 'mm', 'inch'), 3);
+                    }
+                    // This case needs refinement based on specific rules, e.g., max(calcValue, fixed_min_value)
+                    valueDisplay = `${guide.value_ratio}${guide.unit}`;
+                    break;
+                case "ratio_of_od": // Specific for Bosses max height
+                    // For bosses, we need an assumed outer diameter, let's use 2x nominal wall thickness as a typical base
+                    // or ideally, the user should provide it. For now, we'll indicate "relative to OD".
+                    const assumedBossOD = nominalT * 2; // Example assumption
+                    calculatedValue = roundTo(assumedBossOD * guide.value, 2);
+                    if (unit === 'inch') {
+                        calculatedValue = roundTo(convertUnits(calculatedValue, 'mm', 'inch'), 3);
+                    }
+                    valueDisplay = `${guide.value}${guide.unit} (relative to boss OD)`;
+                    break;
+                case "fixed":
+                    let fixedVal = guide.value;
+                     if (unit === 'inch' && guide.unit === 'mm') { // If display unit is inch, but guide is fixed mm
+                        fixedVal = roundTo(convertUnits(fixedVal, 'mm', 'inch'), 3);
+                     } else if (unit === 'mm' && guide.unit === 'inch') { // If display unit is mm, but guide is fixed inch
+                        fixedVal = roundTo(convertUnits(fixedVal, 'inch', 'mm'), 3);
+                     }
+                    calculatedValue = fixedVal;
+                    valueDisplay = `${guide.value} ${guide.unit}`; // Show original for reference
+                    break;
+                case "text":
+                    calculatedValue = guide.value;
+                    valueDisplay = ""; // No ratio/fixed value to display here
+                    break;
+                default:
+                    calculatedValue = 'N/A';
+                    valueDisplay = '';
+            }
+
+            if (guide.type === "text") {
+                html += `<li><strong>${guide.name}:</strong> ${calculatedValue}</li>`;
+            } else if (guide.type === "ratio_of_od") {
+                 html += `<li><strong>${guide.name}:</strong> ${calculatedValue} ${unit} (typically max) ${valueDisplay}</li>`;
+            }
+            else {
+                html += `<li><strong>${guide.name}:</strong> ${calculatedValue} ${unit} (recommended) <em>(${valueDisplay})</em></li>`;
+            }
+        });
+        html += `</ul></div>`;
+    }
+
+    guidelinesResults.innerHTML = html;
+}
+
 // --- Initialization and Event Listeners ---
 document.addEventListener('DOMContentLoaded', async () => {
     // Check current user session status
@@ -265,7 +481,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (res.ok) {
             const userData = await res.json();
             currentUser = userData.user;
-            toggleUI(true);
+            toggleUI(true); // This now also shows the widget toggle button
             await loadCurrentNote(); // Load note based on session/URL
         } else {
             toggleUI(false);
@@ -275,7 +491,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         toggleUI(false);
     }
 
-    // Attach event listeners
+    // Attach authentication and note event listeners
     loginBtn?.addEventListener('click', handleLogin);
     signupBtn?.addEventListener('click', handleSignup);
     logoutBtn?.addEventListener('click', handleLogout);
@@ -290,12 +506,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     noteContentInput?.addEventListener('input', saveHandler);
-    noteTitleInput?.addEventListener('input', saveHandler); // Add event listener for title input
+    noteTitleInput?.addEventListener('input', saveHandler);
 
     createNewNoteBtn?.addEventListener('click', createNewNote);
     viewAllNotesBtn?.addEventListener('click', () => {
         // Redirect to the /documents page to view all notes
         window.location.href = '/documents';
     });
-    // Removed: saveNoteBtn?.addEventListener('click', saveNote); // Removed event listener for the save button
+
+    // --- New Widget Event Listeners ---
+    toggleGuidelinesWidgetBtn?.addEventListener('click', () => {
+        designGuidelinesWidget.classList.toggle('hidden');
+        // Hide the notes section if the widget is shown, for better focus
+        if (!designGuidelinesWidget.classList.contains('hidden')) {
+            notesSection.classList.add('hidden');
+            toggleGuidelinesWidgetBtn.textContent = 'Close Design Guidelines';
+        } else {
+            notesSection.classList.remove('hidden'); // Show notes when widget closes
+            toggleGuidelinesWidgetBtn.textContent = 'Open Design Guidelines';
+        }
+    });
+
+    closeGuidelinesWidgetBtn?.addEventListener('click', () => {
+        designGuidelinesWidget.classList.add('hidden');
+        notesSection.classList.remove('hidden'); // Show notes again
+        toggleGuidelinesWidgetBtn.textContent = 'Open Design Guidelines';
+    });
+
+    calculateGuidelinesBtn?.addEventListener('click', calculateGuidelines);
+
+    // Optional: Recalculate on Enter key in thickness input
+    nominalWallThicknessInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            calculateGuidelines();
+        }
+    });
+    // Optional: Recalculate when unit or process changes
+    thicknessUnitSelect?.addEventListener('change', calculateGuidelines);
+    productionProcessSelect?.addEventListener('change', calculateGuidelines);
+
 });
