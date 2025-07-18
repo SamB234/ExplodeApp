@@ -384,6 +384,63 @@ fastify.get('/notes', async (request, reply) => {
 
 
 
+// In your server.js file, add this new route:
+
+fastify.post('/notes/new', async (request, reply) => {
+    if (!request.session.user) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const userId = request.session.user.id;
+    // For a new note, we typically start with empty content.
+    // However, if your frontend *could* send initial content, allow it.
+    const initialContent = request.body.content || ''; 
+
+    fastify.log.info(`Attempting to create new note for user ${userId}.`);
+
+    try {
+        // Step 1: Deactivate the current active note for this user
+        // This ensures only one note is 'active' at any given time.
+        const { error: deactivateError } = await supabase
+            .from('notes')
+            .update({ is_active: false })
+            .eq('user_id', userId)
+            .eq('is_active', true); // Crucially, only deactivate the currently active one
+
+        if (deactivateError) {
+            // Log this, but don't necessarily abort. 
+            // It might be fine if there was no active note to deactivate.
+            fastify.log.warn('Could not deactivate old active note (might not exist):', deactivateError);
+        } else {
+            fastify.log.info(`Deactivated previous active note for user ${userId}.`);
+        }
+
+        // Step 2: Insert a brand new note and set it as active
+        const { data: newNote, error: insertError } = await supabase
+            .from('notes')
+            .insert({ user_id: userId, content: initialContent, is_active: true })
+            .select(); // Use .select() to get the newly created row data, including its ID
+
+        if (insertError) {
+            fastify.log.error('Error inserting new active note:', insertError);
+            return reply.status(500).send({ error: 'Failed to create new note.' });
+        }
+
+        const newNoteId = newNote && newNote.length > 0 ? newNote[0].id : 'N/A';
+        fastify.log.info(`Created new active note (ID: ${newNoteId}) for user ${userId}.`);
+        
+        // Return the new note data so the frontend can update its state if needed
+        return reply.status(201).send({ message: 'New note created successfully.', note: newNote[0] });
+
+    } catch (e) {
+        fastify.log.error('Exception in POST /notes/new:', e);
+        return reply.status(500).send({ error: 'Internal server error.' });
+    }
+});
+
+
+
+
 // --- Onshape Integrated App Routes ---
 
 // GET / - Root route, handles both initial app load and Onshape context
