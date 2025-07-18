@@ -270,67 +270,114 @@ fastify.post('/logout', async (req, reply) => {
   return reply.send({ message: 'Logged out successfully.' });
 });
 
-// GET /notes – Retrieve notes for logged-in Supabase user
-fastify.get('/notes', async (req, reply) => {
-  if (!req.session.user || !req.session.user.id) {
-    return reply.code(401).send({ error: 'Not logged in to Supabase. Please log in to view notes.' });
-  }
 
-  const { id: user_id } = req.session.user; // Get user_id from session
-  fastify.log.info(`Attempting to retrieve notes for Supabase user_id: ${user_id}`);
 
-  // Fetch the latest note for this user
-  const { data, error } = await supabase
-    .from('notes')
-    .select('content')
-    .eq('user_id', user_id) // Filter by user_id
-    .order('created_at', { ascending: false })
-    .limit(1);
 
-  if (error) {
-    fastify.log.error('Error fetching notes from Supabase:', error.message);
-    return reply.code(500).send({ error: `Failed to retrieve notes: ${error.message}` });
-  }
+// ... (your existing Fastify setup and other routes) ...
 
-  fastify.log.info(`Notes retrieved for Supabase user ${user_id}. Content found: ${data.length > 0}`);
-  return reply.send({ content: data[0]?.content || '' }); // Send the latest note's content or empty string
+// Existing POST /notes route - MODIFY THIS
+fastify.post('/notes', async (request, reply) => {
+    if (!request.session.user) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const userId = request.session.user.id;
+    const { content } = request.body;
+
+    if (content === undefined || content === null) {
+        return reply.status(400).send({ error: 'Note content is required.' });
+    }
+
+    try {
+        // First, try to find the *active* note for this user
+        const { data: existingNotes, error: findError } = await supabase
+            .from('notes')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('is_active', true); // Look for the active note
+
+        if (findError) {
+            fastify.log.error('Error finding active note:', findError);
+            return reply.status(500).send({ error: 'Failed to check for existing note.' });
+        }
+
+        if (existingNotes && existingNotes.length > 0) {
+            // An active note already exists, so UPDATE its content
+            const activeNoteId = existingNotes[0].id;
+            const { data, error: updateError } = await supabase
+                .from('notes')
+                .update({ content: content })
+                .eq('id', activeNoteId)
+                .eq('user_id', userId); // Ensure the user owns this note for security
+
+            if (updateError) {
+                fastify.log.error('Error updating existing active note:', updateError);
+                return reply.status(500).send({ error: 'Failed to update note.' });
+            }
+            fastify.log.info(`Updated active note (ID: ${activeNoteId}) for user ${userId}.`);
+            return reply.status(200).send({ message: 'Note updated successfully.' });
+
+        } else {
+            // No active note found, so INSERT a new one as the active note
+            const { data, error: insertError } = await supabase
+                .from('notes')
+                .insert({ user_id: userId, content: content, is_active: true });
+
+            if (insertError) {
+                fastify.log.error('Error inserting new active note:', insertError);
+                return reply.status(500).send({ error: 'Failed to save new note.' });
+            }
+            fastify.log.info(`Created new active note for user ${userId}.`);
+            return reply.status(200).send({ message: 'New note created successfully.' });
+        }
+
+    } catch (e) {
+        fastify.log.error('Exception in POST /notes:', e);
+        return reply.status(500).send({ error: 'Internal server error.' });
+    }
 });
 
 
+// Existing GET /notes route - MODIFY THIS
+fastify.get('/notes', async (request, reply) => {
+    if (!request.session.user) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
 
-// POST /notes – Save a note for the logged-in Supabase user
-fastify.post('/notes', async (req, reply) => {
-  if (!req.session.user || !req.session.user.id) {
-    return reply.code(401).send({ error: 'Not logged in to Supabase. Please log in to save notes.' });
-  }
+    const userId = request.session.user.id;
+    fastify.log.info(`Attempting to retrieve active note for Supabase user_id: ${userId}`);
 
-  const { id: user_id } = req.session.user;
-  const { content } = req.body;
+    try {
+        // Fetch only the *active* note for the current user
+        const { data: notes, error } = await supabase
+            .from('notes')
+            .select('id, content, created_at') // Select relevant fields
+            .eq('user_id', userId)
+            .eq('is_active', true) // Filter for the active note
+            .maybeSingle(); // Expecting at most one active note
 
-  if (typeof content !== 'string') {
-      return reply.code(400).send({ error: 'Note content must be a string.' });
-  }
+        if (error) {
+            fastify.log.error('Error retrieving active note:', error);
+            return reply.status(500).send({ error: 'Error retrieving note.' });
+        }
 
-  fastify.log.info(`Attempting to save note for Supabase user_id: ${user_id}, content preview: "${content.substring(0, 50)}..."`);
+        // If no active note is found, `notes` will be null
+        if (notes) {
+            fastify.log.info(`Active note retrieved for Supabase user ${userId}.`);
+            return reply.status(200).send(notes); // Send the single note object
+        } else {
+            fastify.log.info(`No active note found for Supabase user ${userId}.`);
+            return reply.status(200).send({ content: '' }); // Return empty content if no active note
+        }
 
-  const { error } = await supabase
-    .from('notes')
-    .insert([{ user_id, content }]);
-
-  if (error) {
-    // --- ADJUSTED LOGGING HERE ---
-    // Log the error message directly using string interpolation
-    fastify.log.error(`Supabase insert error message: ${error.message}`);
-    // Log the full error object after stringifying it, to ensure it's not empty
-    fastify.log.error(`Supabase insert full error object: ${JSON.stringify(error, null, 2)}`); // Added JSON.stringify for clarity
-
-    // Send the error message back to the client for better debugging in the browser console
-    return reply.code(500).send({ error: `Failed to save note: ${error.message || 'Unknown Supabase error'}` });
-  }
-
-  fastify.log.info(`Note saved successfully for Supabase user ${user_id}.`);
-  return reply.send({ message: 'Note saved successfully!' });
+    } catch (e) {
+        fastify.log.error('Exception in GET /notes route:', e);
+        return reply.status(500).send({ error: 'Internal server error.' });
+    }
 });
+
+// ... (your existing /documents route and other routes) ...
+
 
 
 
