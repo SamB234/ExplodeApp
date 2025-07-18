@@ -125,12 +125,12 @@ async function loadCurrentNote() {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
             console.error(`Failed to load note from ${url}: ${response.status} - ${errorData.message}`);
-            
+
             // Clear inputs and set placeholders
             noteTitleInput.value = 'Error Loading Note';
             noteContentInput.value = 'Please try creating a new note or refresh.';
             currentNoteId = null; // No note loaded
-            
+
             // If it was a specific ID that failed, redirect to clean URL
             if (noteIdFromUrl) {
                 window.history.replaceState({}, document.title, '/');
@@ -187,7 +187,7 @@ async function saveNote() {
             const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
             throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message}`);
         }
-        
+
         const result = await response.json();
         console.log('Note saved successfully!', result);
         // If a new note was created (first save for a new session/no active note), update currentNoteId
@@ -308,41 +308,56 @@ const designGuidelines = {
     "injection_molding": {
         label: "Injection Molding",
         features: {
+            "general": {
+                label: "General Guidelines",
+                description: "Basic considerations for robust injection molded parts.",
+                guidelines: [
+                    { name: "Nominal Wall Thickness", type: "range_fixed", min_mm: 1.0, max_mm: 5.0, preferred_mm: 2.5, unit: "mm" },
+                    { name: "Draft Angle (per side)", type: "fixed_value", value: 1, unit: "degrees" },
+                    { name: "Corner Radii (internal)", type: "ratio_range", min: 0.5, max: 0.75, unit: "T" },
+                    { name: "Corner Radii (external)", type: "ratio_range", min: 1.0, max: 1.25, unit: "T" },
+                    { name: "Ejector Pin Marks", type: "text", value: "Allow space for ejector pin marks on non-cosmetic surfaces." },
+                    { name: "Gate Locations", type: "text", value: "Consider gate locations for aesthetic impact and flow." }
+                ]
+            },
             "ribs": {
                 label: "Ribs",
-                description: "Features used for stiffness or alignment.",
+                description: "Used for stiffness, alignment, and reducing sink marks.",
                 guidelines: [
-                    { name: "Thickness (at base)", type: "ratio", min: 0.4, max: 0.6, unit: "T" },
-                    { name: "Max Height", type: "ratio", value: 3, unit: "T" },
-                    { name: "Min Spacing", type: "ratio", value: 2, unit: "T" },
-                    { name: "Draft Angle (per side)", type: "fixed", value: 0.5, unit: "degrees" },
-                    { name: "Base Fillet Radius", type: "ratio", min: 0.25, max: 0.5, unit: "T" }
+                    { name: "Thickness (at base)", type: "ratio_range", min: 0.4, max: 0.6, unit: "T" },
+                    { name: "Max Height", type: "ratio_single_value", value: 3, unit: "T" },
+                    { name: "Min Spacing", type: "ratio_single_value", value: 2, unit: "T" },
+                    { name: "Draft Angle (per side)", type: "fixed_value", value: 0.5, unit: "degrees" },
+                    { name: "Base Fillet Radius", type: "ratio_range", min: 0.25, max: 0.5, unit: "T" }
                 ]
             },
             "bosses": {
                 label: "Bosses",
-                description: "Cylindrical features for fasteners or alignment.",
+                description: "Cylindrical features for fasteners, pins, or alignment.",
                 guidelines: [
-                    { name: "Wall Thickness", type: "ratio", min: 0.4, max: 0.6, unit: "T" },
-                    { name: "Base Fillet Radius", type: "ratio", min: 0.25, max: 0.5, unit: "T" },
-                    { name: "Max Height (relative to OD)", type: "ratio_of_od", value: 3, unit: "OD" }, // OD of the boss
-                    { name: "Draft Angle (OD, per side)", type: "fixed", value: 0.5, unit: "degrees" },
-                    { name: "Draft Angle (ID, per side)", type: "fixed", value: 0.25, unit: "degrees" }
+                    { name: "Wall Thickness (relative to OD)", type: "ratio_range", min: 0.4, max: 0.6, unit: "T" },
+                    { name: "Base Fillet Radius", type: "ratio_range", min: 0.25, max: 0.5, unit: "T" },
+                    { name: "Max Height (relative to Boss OD)", type: "ratio_single_value", value: 3, unit: "OD" }, // OD of the boss
+                    { name: "Draft Angle (OD, per side)", type: "fixed_value", value: 0.5, unit: "degrees" },
+                    { name: "Draft Angle (ID, per side)", type: "fixed_value", value: 0.25, unit: "degrees" }
                 ]
             },
-            "corners": {
-                label: "Corners",
-                description: "Internal and external radii to reduce stress.",
+            "holes_and_slots": {
+                label: "Holes & Slots",
+                description: "Features for assembly or weight reduction.",
                 guidelines: [
-                    { name: "Internal Corner Radius", type: "ratio", min: 0.5, max: 0.75, unit: "T" },
-                    { name: "External Corner Radius", type: "ratio", min: 1.0, max: 1.25, unit: "T" }
+                    { name: "Min Hole Diameter", type: "ratio_single_value", value: 1, unit: "T" },
+                    { name: "Spacing from Wall Edge", type: "ratio_single_value", value: 2, unit: "T" },
+                    { name: "Through-Hole Deburring", type: "text", value: "Consider counterbores or countersinks if deburring is critical." }
                 ]
             },
-            "general_draft": {
-                label: "General Draft",
-                description: "Minimum angle for walls to aid part ejection.",
+            "material_considerations": {
+                label: "Material & Shrinkage",
+                description: "Impact of material choice on design.",
                 guidelines: [
-                    { name: "Recommended Draft Angle", type: "fixed", value: 1, unit: "degrees (per side)" }
+                    { name: "Typical Shrinkage (Amorphous)", type: "range_percentage", min: 0.2, max: 0.7, unit: "%" }, // e.g., PC, PMMA, ABS
+                    { name: "Typical Shrinkage (Semi-Crystalline)", type: "range_percentage", min: 1.5, max: 2.5, unit: "%" }, // e.g., PP, PE, Nylon
+                    { name: "Glass Fiber Fill", type: "text", value: "Glass fiber increases stiffness but also shrinkage anisotropy." }
                 ]
             }
         }
@@ -350,38 +365,76 @@ const designGuidelines = {
     "rotational_molding": {
         label: "Rotational Molding",
         features: {
+            "general": {
+                label: "General Guidelines",
+                description: "Design for robust, even wall thickness in rotationally molded parts.",
+                guidelines: [
+                    { name: "Nominal Wall Thickness", type: "range_fixed", min_mm: 3.0, max_mm: 10.0, preferred_mm: 6.0, unit: "mm" },
+                    { name: "Min Draft Angle (per side)", type: "fixed_value", value: 0.5, unit: "degrees" },
+                    { name: "Internal Corner Radius", type: "ratio_range", min: 0.5, max: 1.0, unit: "T" },
+                    { name: "External Corner Radius", type: "ratio_range", min: 1.5, max: 2.0, unit: "T" },
+                    { name: "Wall Thickness Variation", type: "fixed_value", value: 20, unit: "% max variation" },
+                    { name: "Avoid Sharp Features", type: "text", value: "Generous radii and large transitions are critical for material flow and uniform wall thickness." }
+                ]
+            },
             "ribs_and_projections": {
                 label: "Ribs & Projections",
-                description: "Thicker and wider than injection molding ribs.",
+                description: "Thicker and wider than injection molding ribs due to process.",
                 guidelines: [
-                    { name: "Thickness (at base)", type: "ratio", value: 1, unit: "T" }, // Often same as wall thickness
-                    { name: "Min Width (at base)", type: "ratio", value: 1, unit: "T" }, // For thicker features
-                    { name: "Max Height", type: "ratio", value: 4, unit: "T" },
-                    { name: "Min Radius at Base", type: "ratio", value: 0.5, unit: "T" },
-                    { name: "Draft Angle (per side)", type: "fixed", value: 1.0, unit: "degrees" }
+                    { name: "Thickness (at base)", type: "ratio_single_value", value: 1, unit: "T" }, // Often same as wall thickness
+                    { name: "Min Width (at base)", type: "ratio_single_value", value: 1, unit: "T" }, // For thicker features
+                    { name: "Max Height", type: "ratio_single_value", value: 4, unit: "T" },
+                    { name: "Min Radius at Base", type: "ratio_single_value", value: 0.5, unit: "T" },
+                    { name: "Draft Angle (per side)", type: "fixed_value", value: 1.0, unit: "degrees" }
                 ]
             },
-            "corners": {
-                label: "Corners",
-                description: "Generous radii are critical for material flow and even wall thickness.",
+            "inserts_and_threads": {
+                label: "Inserts & Threads",
+                description: "Methods for adding features that cannot be molded directly.",
                 guidelines: [
-                    { name: "Internal Corner Radius", type: "ratio", min: 0.5, max: 1.0, unit: "T" },
-                    { name: "External Corner Radius", type: "ratio", min: 1.5, max: 2.0, unit: "T" }
+                    { name: "Molded-in Inserts", type: "text", value: "Use only for simple geometries. Should have large knurls/features for resin flow." },
+                    { name: "Post-mold Inserts", type: "text", value: "Better for high-precision or complex threaded connections (e.g., heat-set, ultrasonic)." },
+                    { name: "External Threads", type: "text", value: "Generally molded, requires large pitch and root radii for good definition." },
+                    { name: "Internal Threads", type: "text", value: "Not recommended for molding. Consider threaded inserts or self-tapping screws." }
+                ]
+            }
+        }
+    },
+    "thermoforming": {
+        label: "Thermoforming",
+        features: {
+            "general": {
+                label: "General Guidelines",
+                description: "Key considerations for vacuum and pressure forming processes.",
+                guidelines: [
+                    { name: "Starting Sheet Thickness", type: "range_fixed", min_mm: 0.25, max_mm: 12.0, preferred_mm: 3.0, unit: "mm" },
+                    { name: "Min Draft Angle (per side)", type: "fixed_value", value: 2, unit: "degrees" },
+                    { name: "Ideal Draft Angle", type: "fixed_value", value: 5, unit: "degrees" },
+                    { name: "Internal Corner Radius", type: "ratio_range", min: 1.0, max: 2.0, unit: "T" },
+                    { name: "External Corner Radius", type: "ratio_range", min: 0.5, max: 1.0, unit: "T" },
+                    { name: "Depth of Draw Ratio", type: "fixed_value", value: 1.5, unit: ":1 (typically)" }, // Depth to smallest width
+                    { name: "Webbing", type: "text", value: "Avoid sharp angles and deep, narrow channels to prevent material bridging." }
                 ]
             },
-            "general_considerations": {
-                label: "General Considerations",
-                description: "Broad recommendations for roto-molded parts.",
+            "undercuts": {
+                label: "Undercuts & Features",
+                description: "Handling features not directly moldable.",
                 guidelines: [
-                    { name: "Min Wall Thickness", type: "fixed", value: 3.0, unit: "mm (recommended minimum)" },
-                    { name: "Max Wall Thickness Variation", type: "fixed", value: 20, unit: "% (over entire part)" },
-                    { name: "Min Draft Angle (per side)", type: "fixed", value: 0.5, unit: "degrees" },
-                    { name: "Avoid Sharp Features", type: "text", value: "Generous radii and large transitions are key." }
+                    { name: "Eliminate Undercuts", type: "text", value: "Design parts to avoid undercuts where possible, or use split molds." },
+                    { name: "Holes and Cutouts", type: "text", value: "Often pierced or trimmed in a secondary operation after forming." },
+                    { name: "Texture", type: "text", value: "Texture can hide surface imperfections and improve aesthetics; requires more draft." }
+                ]
+            },
+            "material_considerations": {
+                label: "Material Selection",
+                description: "Common thermoforming materials and their properties.",
+                guidelines: [
+                    { name: "Common Materials", type: "text", value: "ABS, HIPS, PVC, PETG, HDPE, PP, PC." },
+                    { name: "Material Stretchability", type: "text", value: "Materials vary in ability to stretch uniformly, affecting deep draws." }
                 ]
             }
         }
     }
-    // Add more processes as needed
 };
 
 function calculateGuidelines() {
@@ -391,7 +444,7 @@ function calculateGuidelines() {
     const guidelines = designGuidelines[process];
 
     if (isNaN(nominalT) || nominalT <= 0) {
-        guidelinesResults.innerHTML = '<p class="error-message">Please enter a valid nominal wall thickness.</p>';
+        guidelinesResults.innerHTML = '<p class="error-message">Please enter a valid nominal wall thickness (e.g., 3).</p>';
         return;
     }
     if (!guidelines) {
@@ -400,72 +453,76 @@ function calculateGuidelines() {
     }
 
     let html = `<h3>Recommendations for ${guidelines.label} (Nominal T = ${nominalT} ${unit})</h3>`;
+    html += '<p class="intro-text">These guidelines provide general recommendations. Specific material properties and part geometry may require deviations. Always consult with your manufacturer.</p>';
+
 
     for (const featureKey in guidelines.features) {
         const feature = guidelines.features[featureKey];
         html += `<div class="guideline-feature"><h4>${feature.label}</h4><p class="feature-description">${feature.description}</p><ul>`;
 
         feature.guidelines.forEach(guide => {
-            let calculatedValue = '';
-            let valueDisplay = '';
+            let calculatedValueHtml = '';
+            let unitToDisplay = unit; // Default unit for calculated dimensions
 
-            switch (guide.type) {
-                case "ratio":
-                    let minVal = roundTo(nominalT * guide.min, 2);
-                    let maxVal = roundTo(nominalT * guide.max, 2);
-                    if (unit === 'inch') { // Convert to inches for display if original unit was mm
-                         minVal = roundTo(convertUnits(minVal, 'mm', 'inch'), 3);
-                         maxVal = roundTo(convertUnits(maxVal, 'mm', 'inch'), 3);
-                    }
-                    calculatedValue = `${minVal} - ${maxVal}`;
-                    valueDisplay = `${guide.min}${guide.unit} - ${guide.max}${guide.unit}`;
-                    break;
-                case "value_or_ratio": // For cases like injection molding where boss wall thickness is 0.6T or fixed 1.5mm
-                    const calcValue = nominalT * guide.value_ratio;
-                    calculatedValue = roundTo(calcValue, 2);
-                    if (unit === 'inch') {
-                        calculatedValue = roundTo(convertUnits(calculatedValue, 'mm', 'inch'), 3);
-                    }
-                    // This case needs refinement based on specific rules, e.g., max(calcValue, fixed_min_value)
-                    valueDisplay = `${guide.value_ratio}${guide.unit}`;
-                    break;
-                case "ratio_of_od": // Specific for Bosses max height
-                    // For bosses, we need an assumed outer diameter, let's use 2x nominal wall thickness as a typical base
-                    // or ideally, the user should provide it. For now, we'll indicate "relative to OD".
-                    const assumedBossOD = nominalT * 2; // Example assumption
-                    calculatedValue = roundTo(assumedBossOD * guide.value, 2);
-                    if (unit === 'inch') {
-                        calculatedValue = roundTo(convertUnits(calculatedValue, 'mm', 'inch'), 3);
-                    }
-                    valueDisplay = `${guide.value}${guide.unit} (relative to boss OD)`;
-                    break;
-                case "fixed":
-                    let fixedVal = guide.value;
-                     if (unit === 'inch' && guide.unit === 'mm') { // If display unit is inch, but guide is fixed mm
-                        fixedVal = roundTo(convertUnits(fixedVal, 'mm', 'inch'), 3);
-                     } else if (unit === 'mm' && guide.unit === 'inch') { // If display unit is mm, but guide is fixed inch
-                        fixedVal = roundTo(convertUnits(fixedVal, 'inch', 'mm'), 3);
+            if (guide.type === "ratio_range") {
+                let minVal = roundTo(nominalT * guide.min, 2);
+                let maxVal = roundTo(nominalT * guide.max, 2);
+                if (unit === 'inch') {
+                     minVal = roundTo(convertUnits(minVal, 'mm', 'inch'), 3);
+                     maxVal = roundTo(convertUnits(maxVal, 'mm', 'inch'), 3);
+                }
+                calculatedValueHtml = `${minVal} - ${maxVal} ${unitToDisplay} <em>(${guide.min}${guide.unit} - ${guide.max}${guide.unit})</em>`;
+            } else if (guide.type === "ratio_single_value") {
+                let val = roundTo(nominalT * guide.value, 2);
+                if (unit === 'inch') {
+                    val = roundTo(convertUnits(val, 'mm', 'inch'), 3);
+                }
+                // Special handling for "Max Height (relative to Boss OD)"
+                if (guide.unit === "OD") {
+                     // Assume Boss OD is 2x Nominal T for calculation example, but state it's relative to OD
+                     let assumedBossOD = nominalT * 2;
+                     let calculatedODHeight = roundTo(assumedBossOD * guide.value, 2);
+                     if (unit === 'inch') {
+                         calculatedODHeight = roundTo(convertUnits(calculatedODHeight, 'mm', 'inch'), 3);
                      }
-                    calculatedValue = fixedVal;
-                    valueDisplay = `${guide.value} ${guide.unit}`; // Show original for reference
-                    break;
-                case "text":
-                    calculatedValue = guide.value;
-                    valueDisplay = ""; // No ratio/fixed value to display here
-                    break;
-                default:
-                    calculatedValue = 'N/A';
-                    valueDisplay = '';
-            }
+                     calculatedValueHtml = `${calculatedODHeight} ${unitToDisplay} (relative to approx. ${roundTo(assumedBossOD,2)}${unitToDisplay} Boss OD) <em>(${guide.value}${guide.unit})</em>`;
+                } else {
+                     calculatedValueHtml = `${val} ${unitToDisplay} <em>(${guide.value}${guide.unit})</em>`;
+                }
+            } else if (guide.type === "fixed_value") {
+                // If the guide unit is 'degrees', display as degrees, no conversion needed
+                if (guide.unit.includes('degrees') || guide.unit.includes('%')) {
+                    calculatedValueHtml = `${guide.value} ${guide.unit}`;
+                } else { // It's a dimension, convert if units differ
+                    let displayVal = guide.value;
+                    let originalUnit = guide.unit; // e.g., 'mm' or 'inch' from the data structure
 
-            if (guide.type === "text") {
-                html += `<li><strong>${guide.name}:</strong> ${calculatedValue}</li>`;
-            } else if (guide.type === "ratio_of_od") {
-                 html += `<li><strong>${guide.name}:</strong> ${calculatedValue} ${unit} (typically max) ${valueDisplay}</li>`;
+                    if (unit !== originalUnit) {
+                        displayVal = convertUnits(displayVal, originalUnit, unit);
+                    }
+                    calculatedValueHtml = `${roundTo(displayVal, unit === 'mm' ? 2 : 3)} ${unit} <em>(${guide.value} ${originalUnit} recommended)</em>`;
+                }
+            } else if (guide.type === "text") {
+                calculatedValueHtml = `${guide.value}`;
+            } else if (guide.type === "range_fixed") { // For fixed ranges like nominal wall thickness
+                let minVal = guide.min_mm;
+                let maxVal = guide.max_mm;
+                let preferredVal = guide.preferred_mm;
+
+                if (unit === 'inch') {
+                    minVal = convertUnits(minVal, 'mm', 'inch');
+                    maxVal = convertUnits(maxVal, 'mm', 'inch');
+                    preferredVal = convertUnits(preferredVal, 'mm', 'inch');
+                }
+                calculatedValueHtml = `${roundTo(minVal, unit === 'mm' ? 2 : 3)} - ${roundTo(maxVal, unit === 'mm' ? 2 : 3)} ${unit} (Preferred: ${roundTo(preferredVal, unit === 'mm' ? 2 : 3)} ${unit})`;
+            } else if (guide.type === "range_percentage") {
+                 calculatedValueHtml = `${guide.min}% - ${guide.max}% ${guide.unit}`;
             }
             else {
-                html += `<li><strong>${guide.name}:</strong> ${calculatedValue} ${unit} (recommended) <em>(${valueDisplay})</em></li>`;
+                calculatedValueHtml = 'N/A';
             }
+
+            html += `<li><strong>${guide.name}:</strong> ${calculatedValueHtml}</li>`;
         });
         html += `</ul></div>`;
     }
@@ -545,4 +602,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     thicknessUnitSelect?.addEventListener('change', calculateGuidelines);
     productionProcessSelect?.addEventListener('change', calculateGuidelines);
 
+    // Set initial values and calculate on load for a good default view
+    nominalWallThicknessInput.value = 3; // Default to 3mm
+    thicknessUnitSelect.value = 'mm';
+    productionProcessSelect.value = 'injection_molding';
+    calculateGuidelines(); // Calculate initial guidelines on load
 });
