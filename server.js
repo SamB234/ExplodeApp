@@ -315,10 +315,15 @@ fastify.post('/notes', async (req, reply) => {
     .from('notes')
     .insert([{ user_id, content }]);
 
-  if (error) {
-    // *** IMPORTANT CHANGE HERE ***
-    fastify.log.error('Error saving note to Supabase:', error); // Log the entire error object
-    return reply.code(500).send({ error: `Failed to save note: ${error.message || JSON.stringify(error)}` }); // Send full error or stringified object
+ if (error) {
+    // --- CRUCIAL CHANGES HERE ---
+    // Log the error message directly
+    fastify.log.error('Supabase insert error message:', error.message);
+    // Log the full error object (Fastify logger should handle this)
+    fastify.log.error('Supabase insert full error object:', error);
+
+    // Send the error message back to the client for better debugging in the browser console
+    return reply.code(500).send({ error: `Failed to save note: ${error.message || 'Unknown Supabase error'}` });
   }
 
   fastify.log.info(`Note saved successfully for Supabase user ${user_id}.`);
