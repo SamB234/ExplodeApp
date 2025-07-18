@@ -1,33 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Engineering Notes</title>
-    <link rel="stylesheet" href="/public/style.css">
-  </head>
+  <meta charset="UTF-8" />
+  <title>Engineering Notes</title>
+  <link rel="stylesheet" href="/public/style.css">
+</head>
 <body>
 
-  <div class="auth" id="authSection">
-    <h2>Log In or Sign Up</h2>
-    <input id="email" type="email" placeholder="Email" />
-    <input id="password" type="password" placeholder="Password" />
-    <button id="loginBtn">Log In</button>
-    <button id="signupBtn">Sign Up</button>
-  </div>
+  <div class="auth" id="authSection">
+    <h2>Log In or Sign Up</h2>
+    <input id="email" type="email" placeholder="Email" />
+    <input id="password" type="password" placeholder="Password" />
+    <button id="loginBtn">Log In</button>
+    <button id="signupBtn">Sign Up</button>
+  </div>
 
-  <div class="notes hidden" id="notesSection">
-    <h2>Your Engineering Notes</h2>
-    <textarea id="noteContent" placeholder="Start typing your notes..."></textarea>
-    <p style="font-size: 0.9em; color: gray;">Saved automatically to your account</p>
+  <div class="notes hidden" id="notesSection">
+    <h2>Your Engineering Notes</h2>
+    <input type="text" id="noteTitle" placeholder="Note Title" class="note-title-input" value="">
+    <textarea id="noteContent" placeholder="Start typing your notes..."></textarea>
+    <p style="font-size: 0.9em; color: gray;">Saved automatically to your account</p>
 
-    <div class="note-actions">
-        <button id="createNewNoteBtn">Create New Note</button>
-        <button id="viewAllNotesBtn">View All Notes</button>
-    </div>
+    <div class="note-actions">
+        <button id="createNewNoteBtn">Create New Note</button>
+        <button id="viewAllNotesBtn">View All Notes</button>
+        <button id="saveNoteBtn">Save Current Note</button>
+    </div>
 
-    <button id="logoutBtn">Log Out</button>
-  </div>
+    <button id="logoutBtn">Log Out</button>
+  </div>
 
-  <script type="module" src="/public/script.js"></script>
-      </body>
+  <script type="module" src="/public/script.js"></script>
+</body>
 </html>
