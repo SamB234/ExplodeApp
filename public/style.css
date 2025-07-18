@@ -1,51 +1,332 @@
+/* public/style.css */
+
+/* --- General Body & Typography --- */
 body {
-  font-family: Arial, sans-serif; /* Changed from just 'sans-serif' to match previous Arial */
-  margin: 40px; /* Kept from previous inline style */
-  background-color: #f9f9f9; /* Kept from previous inline style, overriding #f0f0f0 */
-  color: #333;
-  padding: 2rem; /* Added from your new style snippet */
+    font-family: Arial, sans-serif;
+    margin: 0; /* Reset default body margin */
+    background-color: #f9f9f9;
+    color: #333;
+    padding: 2rem; /* Consistent padding */
+    line-height: 1.6;
 }
 
-h1 {
-  color: #007acc;
+h1, h2, h3, h4, h5, h6 {
+    color: #007acc;
+    margin-top: 0; /* Reset top margin for headings */
+    margin-bottom: 0.5em;
 }
 
-/* Styles that were previously inline in index.hbs */
+h1.page-title {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2.5em;
+    color: #007acc;
+}
+
+p {
+    margin-top: 0;
+    margin-bottom: 1em;
+}
+
+a {
+    color: #007bff;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+a:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+/* --- Main Layout & Containers --- */
+main {
+    padding: 20px;
+    max-width: 800px; /* Wider main content for notes list */
+    margin: 20px auto;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+/* --- Authentication & Note Editing Sections (Main Page) --- */
 .auth, .notes {
-  max-width: 600px;
-  margin: auto;
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    max-width: 600px; /* Specific width for these sections */
+    margin: auto; /* Centers them */
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
 textarea {
-  width: 100%;
-  height: 300px;
-  font-size: 1em;
-  padding: 10px;
-  margin-top: 10px;
+    width: 100%;
+    height: 300px;
+    font-size: 1em;
+    padding: 10px;
+    margin-top: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box; /* Include padding/border in width */
 }
 
-input, button {
-  padding: 8px;
-  font-size: 1em;
-  margin: 4px 0;
-  width: 100%;
+input[type="email"],
+input[type="password"] {
+    padding: 10px; /* Increased padding slightly for input fields */
+    font-size: 1em;
+    margin: 8px 0; /* More vertical space */
+    width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+button {
+    padding: 10px 15px; /* Adjust padding for buttons */
+    font-size: 1em;
+    margin: 4px 0;
+    width: 100%;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    background-color: #007bff;
+    color: white;
+    transition: background-color 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+    background-color: #0056b3;
+}
+
+button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
 }
 
 .note-actions {
-  display: flex;
-  gap: 10px; /* Space between buttons */
-  margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap; /* Allow buttons to wrap on small screens */
 }
 
 .note-actions button {
-  flex: 1; /* Make buttons take equal width */
-  width: auto; /* Override general button width */
+    flex: 1;
+    min-width: 120px; /* Ensure buttons don't get too small */
 }
 
 .hidden {
-  display: none;
+    display: none;
+}
+
+/* --- Header --- */
+header {
+    background-color: #007acc;
+    color: white;
+    padding: 15px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+header h1 {
+    margin: 0;
+    color: white;
+}
+
+header nav a {
+    color: white;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+header nav a:hover {
+    background-color: rgba(255,255,255,0.2);
+}
+
+/* --- Documents List Page Specific Styles --- */
+
+.documents-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #f8f8f8;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    gap: 10px; /* Spacing between control elements */
+}
+
+.documents-controls .action-button {
+    padding: 8px 15px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.2s ease;
+    /* Remove specific margins from previous snippet, let gap handle it */
+}
+
+.documents-controls .action-button:hover:not(:disabled) {
+    opacity: 0.9;
+}
+
+.documents-controls .action-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+#backToMainBtn {
+    background-color: #007bff;
+    color: white;
+    /* margin-right: auto; Removed, let flexbox handle spacing */
+}
+
+#deleteSelectedBtn {
+    background-color: #dc3545; /* Red for delete */
+    color: white;
+    /* margin-left: 15px; Removed, let gap handle spacing */
+}
+
+.select-all-label {
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #555;
+    white-space: nowrap; /* Prevent wrapping for 'Select All' text */
+}
+
+#selectAllCheck {
+    margin-right: 8px; /* Slightly more space */
+    width: 20px; /* Slightly larger checkbox */
+    height: 20px;
+    cursor: pointer;
+    flex-shrink: 0; /* Prevent checkbox from shrinking */
+}
+
+.notes-list {
+    display: grid;
+    gap: 15px; /* Space between note items */
+}
+
+.note-item {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    display: flex; /* Align checkbox and link */
+    align-items: flex-start; /* Align checkbox to the top of the content */
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.note-item:hover {
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+/* Highlight the active note */
+.note-item.active-note {
+    border: 2px solid #007bff;
+    background-color: #e0f7fa;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.note-item .note-checkbox {
+    margin-right: 15px;
+    margin-top: 5px;
+    min-width: 20px;
+    min-height: 20px;
+    cursor: pointer;
+}
+
+.note-item .note-link {
+    text-decoration: none;
+    color: inherit;
+    flex-grow: 1;
+    display: block;
+    cursor: pointer; /* Explicitly indicate clickable */
+}
+
+.note-item h3 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    color: #333;
+    font-size: 1.2em;
+}
+
+.note-item .no-title {
+    font-style: italic;
+    color: #888;
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+
+.note-item .note-preview {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.note-item .note-date {
+    font-size: 0.8em;
+    color: #999;
+}
+
+.no-notes-message {
+    text-align: center;
+    padding: 30px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    max-width: 600px;
+    margin: 30px auto;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 768px) {
+    body {
+        padding: 1rem;
+    }
+
+    header {
+        flex-direction: column;
+        text-align: center;
+        padding: 15px 20px;
+    }
+
+    header h1 {
+        margin-bottom: 10px;
+    }
+
+    .documents-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .documents-controls button,
+    .documents-controls .select-all-label {
+        width: 100%;
+        margin-top: 10px;
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .note-actions {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    h1.page-title {
+        font-size: 2em;
+    }
 }
