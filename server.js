@@ -295,32 +295,33 @@ fastify.get('/notes', async (req, reply) => {
   return reply.send({ content: data[0]?.content || '' }); // Send the latest note's content or empty string
 });
 
+
+
 // POST /notes – Save a note for the logged-in Supabase user
 fastify.post('/notes', async (req, reply) => {
   if (!req.session.user || !req.session.user.id) {
     return reply.code(401).send({ error: 'Not logged in to Supabase. Please log in to save notes.' });
   }
 
-  const { id: user_id } = req.session.user; // Get user_id from session
+  const { id: user_id } = req.session.user;
   const { content } = req.body;
 
   if (typeof content !== 'string') {
       return reply.code(400).send({ error: 'Note content must be a string.' });
   }
 
-  fastify.log.info(`Attempting to save note for Supabase user_id: ${user_id}, content preview: "${content.substring(0, 50)}..."`); // Added content preview
+  fastify.log.info(`Attempting to save note for Supabase user_id: ${user_id}, content preview: "${content.substring(0, 50)}..."`);
 
-  // Insert new note into the 'notes' table
   const { error } = await supabase
     .from('notes')
     .insert([{ user_id, content }]);
 
- if (error) {
-    // --- CRUCIAL CHANGES HERE ---
-    // Log the error message directly
-    fastify.log.error('Supabase insert error message:', error.message);
-    // Log the full error object (Fastify logger should handle this)
-    fastify.log.error('Supabase insert full error object:', error);
+  if (error) {
+    // --- ADJUSTED LOGGING HERE ---
+    // Log the error message directly using string interpolation
+    fastify.log.error(`Supabase insert error message: ${error.message}`);
+    // Log the full error object after stringifying it, to ensure it's not empty
+    fastify.log.error(`Supabase insert full error object: ${JSON.stringify(error, null, 2)}`); // Added JSON.stringify for clarity
 
     // Send the error message back to the client for better debugging in the browser console
     return reply.code(500).send({ error: `Failed to save note: ${error.message || 'Unknown Supabase error'}` });
@@ -329,6 +330,8 @@ fastify.post('/notes', async (req, reply) => {
   fastify.log.info(`Note saved successfully for Supabase user ${user_id}.`);
   return reply.send({ message: 'Note saved successfully!' });
 });
+
+
 
 // --- Onshape Integrated App Routes ---
 
