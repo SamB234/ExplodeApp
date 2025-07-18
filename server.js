@@ -598,6 +598,18 @@ fastify.get('/listDocuments', { preHandler: ensureValidOnshapeToken }, async (re
   }
 });
 
+
+// GET /currentUser - Get current Supabase user from session
+fastify.get('/currentUser', async (req, reply) => {
+    if (req.session.user && req.session.user.id) {
+        fastify.log.info(`Returning current user: ${req.session.user.email}`);
+        return reply.send({ user: { id: req.session.user.id, email: req.session.user.email } });
+    } else {
+        fastify.log.info('No current Supabase user in session.');
+        return reply.code(401).send({ user: null, message: 'No user logged in.' });
+    }
+});
+
 // --- Server Start ---
 const start = async () => {
   try {
