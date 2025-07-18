@@ -308,7 +308,7 @@ fastify.post('/notes', async (req, reply) => {
       return reply.code(400).send({ error: 'Note content must be a string.' });
   }
 
-  fastify.log.info(`Attempting to save note for Supabase user_id: ${user_id}`);
+  fastify.log.info(`Attempting to save note for Supabase user_id: ${user_id}, content preview: "${content.substring(0, 50)}..."`); // Added content preview
 
   // Insert new note into the 'notes' table
   const { error } = await supabase
@@ -316,8 +316,9 @@ fastify.post('/notes', async (req, reply) => {
     .insert([{ user_id, content }]);
 
   if (error) {
-    fastify.log.error('Error saving note to Supabase:', error.message);
-    return reply.code(500).send({ error: `Failed to save note: ${error.message}` });
+    // *** IMPORTANT CHANGE HERE ***
+    fastify.log.error('Error saving note to Supabase:', error); // Log the entire error object
+    return reply.code(500).send({ error: `Failed to save note: ${error.message || JSON.stringify(error)}` }); // Send full error or stringified object
   }
 
   fastify.log.info(`Note saved successfully for Supabase user ${user_id}.`);
