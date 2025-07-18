@@ -273,7 +273,85 @@ fastify.post('/logout', async (req, reply) => {
 
 
 
-// ... (your existing Fastify setup and other routes) ...
+// server.js
+
+// Add this DELETE route
+fastify.delete('/notes', async (request, reply) => {
+    if (!request.session.user) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const userId = request.session.user.id;
+    const { noteIds } = request.body; // Expect an array of note IDs
+
+    if (!noteIds || !Array.isArray(noteIds) || noteIds.length === 0) {
+        return reply.status(400).send({ error: 'No note IDs provided for deletion.' });
+    }
+
+    try {
+        // IMPORTANT SECURITY STEP: Ensure the user owns all notes they are trying to delete.
+        // First, check if all provided noteIds belong to the current user.
+        const { data: userNotes, error: fetchError } = await supabase
+            .from('notes')
+            .select('id')
+            .in('id', noteIds)
+            .eq('user_id', userId);
+
+        if (fetchError) {
+            fastify.log.error('Error verifying note ownership for deletion:', fetchError);
+            return reply.status(500).send({ error: 'Failed to verify note ownership.' });
+        }
+
+        const ownedNoteIds = userNotes.map(note => note.id);
+        const unownedNoteIds = noteIds.filter(id => !ownedNoteIds.includes(id));
+
+        if (unownedNoteIds.length > 0) {
+            fastify.log.warn(`User ${userId} attempted to delete unowned notes: ${unownedNoteIds.join(', ')}`);
+            // You can choose to return an error or proceed with only owned notes.
+            // For security, it's safer to either error out or only delete the owned ones explicitly.
+            // Let's error out to be strict, or filter and proceed. Filtering is more user-friendly.
+            // For now, let's just proceed with owned notes, but log the warning.
+            // If you want strict: return reply.status(403).send({ error: 'Attempted to delete notes not owned by user.' });
+        }
+
+        // Filter out any unowned notes from the deletion list
+        const notesToDelete = ownedNoteIds;
+
+        if (notesToDelete.length === 0) {
+             return reply.status(400).send({ error: 'No valid notes to delete or all selected notes are unowned.' });
+        }
+
+        // Perform the deletion
+        const { error: deleteError } = await supabase
+            .from('notes')
+            .delete()
+            .in('id', notesToDelete)
+            .eq('user_id', userId); // Extra layer of security
+
+        if (deleteError) {
+            fastify.log.error('Error deleting notes from Supabase:', deleteError);
+            return reply.status(500).send({ error: 'Failed to delete notes.' });
+        }
+
+        // After deletion, if the currently active note was deleted,
+        // we should probably set a new active note (e.g., the most recent one remaining, or an empty one).
+        // This is important to prevent the main page from trying to load a deleted note.
+        // For simplicity, for now, we'll let the frontend handle reloading and picking a new active note.
+        // If the *active* note was deleted, a subsequent loadNotes call on the main page will handle it.
+
+        fastify.log.info(`User ${userId} successfully deleted notes: ${notesToDelete.join(', ')}`);
+        return reply.status(200).send({ message: 'Notes deleted successfully.', deletedCount: notesToDelete.length });
+
+    } catch (e) {
+        fastify.log.error('Exception in DELETE /notes:', e);
+        return reply.status(500).send({ error: 'Internal server error.' });
+    }
+});
+
+
+
+
+
 
 // Existing POST /notes route - MODIFY THIS
 fastify.post('/notes', async (request, reply) => {
