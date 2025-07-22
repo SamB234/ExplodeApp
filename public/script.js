@@ -607,4 +607,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     thicknessUnitSelect.value = 'mm';
     productionProcessSelect.value = 'injection_molding';
     calculateGuidelines(); // Calculate initial guidelines on load
+
+
+//TEST SECTION
+
+// Guest login button
+const guestBtn = document.getElementById('guestBtn');
+
+guestBtn?.addEventListener('click', () => {
+  currentUser = { id: 'guest', email: 'guest@demo.com' }; // Fake guest object
+  notes.value = localStorage.getItem('guest_notes') || ''; // Load guest notes from localStorage
+  toggleUI(true);
+});
+
+// If guest user types, save to localStorage instead of backend
+notes?.addEventListener('input', async () => {
+  if (!currentUser) return;
+
+  if (currentUser.id === 'guest') {
+    localStorage.setItem('guest_notes', notes.value);
+    return;
+  }
+
+  // Authenticated user – save to backend
+  try {
+    await fetch('/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: notes.value }),
+    });
+  } catch (err) {
+    console.error('Failed to save notes', err);
+  }
+
+//TEST SECTION
+    
 });
