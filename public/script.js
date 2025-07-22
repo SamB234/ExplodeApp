@@ -532,6 +532,18 @@ function calculateGuidelines() {
 
 // --- Initialization and Event Listeners ---
 document.addEventListener('DOMContentLoaded', async () => {
+
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const isGuest = urlParams.get('guest') === 'true';
+
+    if (isGuest) {
+        currentUser = { id: 'guest', email: 'guest@demo.com' };
+        toggleUI(true);
+        return; // Skip the rest of the login/session logic
+    }
+
+    
     // Check current user session status
     try {
         const res = await fetch('/currentUser', { credentials: 'include' });
