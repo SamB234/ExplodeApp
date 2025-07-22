@@ -9,6 +9,8 @@ const passwordInput = document.getElementById('password');
 const loginBtn = document.getElementById('loginBtn');
 const signupBtn = document.getElementById('signupBtn');
 const logoutBtn = document.getElementById('logoutBtn');
+const guestBtn = document.getElementById('guestBtn');
+
 
 // New: Title Input Element
 const noteTitleInput = document.getElementById('noteTitle'); // The new note title input field
@@ -564,6 +566,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     loginBtn?.addEventListener('click', handleLogin);
     signupBtn?.addEventListener('click', handleSignup);
     logoutBtn?.addEventListener('click', handleLogout);
+
+    guestBtn?.addEventListener('click', () => {
+    currentUser = { id: 'guest', email: 'guest@demo.com' };
+    toggleUI(true);
+});
+
 
     // Debounce the note saving on input for both title and content
     let saveTimer;
